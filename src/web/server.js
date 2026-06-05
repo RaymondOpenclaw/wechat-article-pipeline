@@ -5,6 +5,7 @@ import { loadDotEnv } from "../utils/env.js";
 import { ensureDir, readJson, slugify, writeJson } from "../utils/files.js";
 import { loadConfig } from "../core/config.js";
 import { AiClient } from "../core/aiClient.js";
+import { ARTICLE_TEMPLATES } from "../core/articleTemplates.js";
 import { ARTICLE_EXPERTS } from "../core/experts.js";
 import { processArticle } from "../core/pipeline.js";
 import { historyInboxPath, loadStyleProfile } from "../core/styleProfile.js";
@@ -208,6 +209,15 @@ async function homePage() {
             </label>
           `).join("")}
         </div>
+        <label>文本模板</label>
+        <div class="expert-list">
+          ${ARTICLE_TEMPLATES.map((template) => `
+            <label class="expert-item">
+              <input type="radio" name="articleTemplateId" value="${escapeHtml(template.id)}" ${config.articleTemplate?.selectedId === template.id ? "checked" : ""} />
+              <span><strong>${escapeHtml(template.name)}</strong>${escapeHtml(template.description)}<br><span class="muted">结构：${escapeHtml(template.structure.join(" → "))}</span></span>
+            </label>
+          `).join("")}
+        </div>
         <div class="row">
           <button id="createWorkflowBtn">创建工作流</button>
           <button id="runNextBtn" class="secondary" disabled>执行下一节点</button>
@@ -291,7 +301,8 @@ async function homePage() {
       const data = await postJson("/api/workflows/create", {
         fileName: document.querySelector("#fileName").value,
         text: document.querySelector("#articleText").value,
-        expertIds: [...document.querySelectorAll('input[name="expertIds"]:checked')].map(input => input.value)
+        expertIds: [...document.querySelectorAll('input[name="expertIds"]:checked')].map(input => input.value),
+        articleTemplateId: document.querySelector('input[name="articleTemplateId"]:checked')?.value || "story_insight"
       });
       if (!data.ok) { statusEl.textContent = data.error; return; }
       updateWorkflow(data.workflow);
@@ -486,6 +497,9 @@ async function workflowsApi() {
 async function createWorkflowApi(request) {
   const body = await readBody(request);
   const config = await loadConfig(cwd);
+  if (body.articleTemplateId) {
+    config.articleTemplate = { ...(config.articleTemplate || {}), selectedId: body.articleTemplateId };
+  }
   const workflow = await createArticleWorkflow({
     cwd,
     fileName: body.fileName || "draft.md",
@@ -538,6 +552,9 @@ async function previewApi(request) {
   const filePath = path.join(tempDir, safeName);
   await fs.writeFile(filePath, body.text, "utf8");
   const config = await loadConfig(cwd);
+  if (body.articleTemplateId) {
+    config.articleTemplate = { ...(config.articleTemplate || {}), selectedId: body.articleTemplateId };
+  }
   if (Array.isArray(body.expertIds)) {
     config.experts = { ...(config.experts || {}), enabled: body.expertIds.length > 0, selectedIds: body.expertIds };
   }

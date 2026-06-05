@@ -6,6 +6,9 @@ const defaultConfig = {
   profileName: "default",
   useHistoryStyle: true,
   rewriteDepth: "light",
+  articleTemplate: {
+    selectedId: "story_insight"
+  },
   styleEngine: {
     autoRefreshEnabled: true,
     autoRefreshHours: 24
@@ -39,6 +42,7 @@ function mergeConfig(base, override) {
   result.image = { ...base.image, ...(override.image || {}) };
   result.wechat = { ...base.wechat, ...(override.wechat || {}) };
   result.styleEngine = { ...base.styleEngine, ...(override.styleEngine || {}) };
+  result.articleTemplate = { ...base.articleTemplate, ...(override.articleTemplate || {}) };
   return result;
 }
 

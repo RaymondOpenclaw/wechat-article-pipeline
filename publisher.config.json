@@ -3,6 +3,9 @@
   "profileName": "default",
   "useHistoryStyle": true,
   "rewriteDepth": "professional_wechat",
+  "articleTemplate": {
+    "selectedId": "story_insight"
+  },
   "styleEngine": {
     "autoRefreshEnabled": true,
     "autoRefreshHours": 24

@@ -18,8 +18,8 @@ test("transformArticle creates a professional WeChat-ready draft fallback", asyn
   assert.match(article.html, /点个赞|点赞/);
   assert.match(article.html, /读完可以立刻做的 3 件事/);
   assert.equal(article.expertReviews.valueMentor.goldenLines.length, 2);
-  assert.match(article.markdown, /有些想法/);
-  assert.equal(article.blueprint.sections.length, 3);
+  assert.match(article.markdown, /具体画面|核心矛盾/);
+  assert.equal(article.blueprint.sections.length >= 3, true);
   assert.ok(article.changeLog.length >= 1);
   assert.equal(article.blueprint.titleCandidates.length, 5);
 });
@@ -33,6 +33,35 @@ test("transformArticle infers a concise title from rough ideas", async () => {
     aiClient: { json: async (_system, _user, fallback) => fallback() }
   });
   assert.equal(article.title, "写文章不是倒出来，而是整理顺序");
+});
+
+test("transformArticle supports selectable article templates", async () => {
+  const input = {
+    rawText: "自由职业的节奏不是一直前进。很多时候，退一步是在确认这条路和自己是否匹配。",
+    metadata: {}
+  };
+  const aiClient = { json: async (_system, _user, fallback) => fallback() };
+  const story = await transformArticle(input, {
+    config: { articleTemplate: { selectedId: "story_insight" }, image: { inlineImageCount: 1 } },
+    aiClient
+  });
+  assert.equal(story.blueprint.articleType, "故事洞察型");
+  assert.equal(story.title, "自由职业不是一直往前冲");
+  assert.match(story.markdown, /退一步不是放弃/);
+
+  const knowledge = await transformArticle(input, {
+    config: { articleTemplate: { selectedId: "knowledge_course" }, image: { inlineImageCount: 1 } },
+    aiClient
+  });
+  assert.equal(knowledge.blueprint.articleType, "知识精讲型");
+  assert.match(knowledge.markdown, /先别急着背概念/);
+
+  const practical = await transformArticle(input, {
+    config: { articleTemplate: { selectedId: "practical_method" }, image: { inlineImageCount: 1 } },
+    aiClient
+  });
+  assert.equal(practical.blueprint.articleType, "实战方法型");
+  assert.match(practical.markdown, /可以这样做三步/);
 });
 
 test("createVisualBrief creates cover and inline prompts", async () => {

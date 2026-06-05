@@ -1,4 +1,5 @@
 import { AiClient } from "./aiClient.js";
+import { articleTemplatePrompt, getArticleTemplate } from "./articleTemplates.js";
 import { ARTICLE_EXPERTS, buildExpertPanel, normalizeExpertReviews } from "./experts.js";
 import { formatWechatHtml } from "./wechatFormatter.js";
 import { imagePlaceholder, textToParagraphHtml } from "../utils/html.js";
@@ -22,7 +23,9 @@ function buildTransformPrompt(input, styleProfile, config) {
       "按照用户历史文章的写作特征来写：标题结构、开头方式、段落节奏、常用表达、论证习惯、结尾习惯都要参考 StyleProfile",
       "公众号排版必须直接适合手机阅读：短段落、清晰小标题、重点句、引用/金句、列表/步骤、留白、图片插入点",
       "每个小节只解决一个问题，并让读者获得一个明确收获，避免空泛鸡汤、管理学套话、AI常见套路",
+      "参考 BND-1/wechat_article_skills 的写作原则：第一人称、观点鲜明但有理有据、真实场景导向、短句短段、不要堆功能/概念列表",
       "标题候选必须覆盖：情绪共鸣型、身份认同型、反常识型、金句提炼型、场景切入型",
+      "必须根据 selectedTemplate 组织文章，不要把不同模板混用成松散列表",
       "不要新增未经原文支持的事实或案例",
       "如果使用个人风格，只迁移结构和表达习惯，不复制历史原句",
       "必须调用 expertPanel 中的专家视角：主编负责成稿质量，价值导师负责闪光点和金句，信息提炼大师负责结构与 Action Items",
@@ -51,6 +54,7 @@ function buildTransformPrompt(input, styleProfile, config) {
       changeLog: ["改动说明"],
       riskNotes: ["风险提示，没有则为空数组"]
     },
+    articleTemplate: articleTemplatePrompt(config),
     metadata: input.metadata,
     styleProfile,
     expertPanel: buildExpertPanel(input, config),
@@ -108,6 +112,9 @@ function heuristicTransform(input, styleProfile, config) {
   const narrative = buildSpecialNarrativeArticle(input, config);
   if (narrative) return narrative;
 
+  const templated = buildTemplatedArticle(input, styleProfile, config);
+  if (templated) return templated;
+
   const sourceTitle = input.metadata.title || firstHeading(input.rawText);
   const paragraphs = input.rawText
     .replace(/^#{1,3}\s+/gm, "")
@@ -155,6 +162,69 @@ function heuristicTransform(input, styleProfile, config) {
       "根据个人风格库约束表达习惯，并完成微信移动端排版"
     ],
     riskNotes: []
+  };
+}
+
+function buildTemplatedArticle(input, styleProfile, config) {
+  const template = getArticleTemplate(config);
+  const raw = normalizeRawText(input.rawText);
+  if (!raw) return null;
+  const sentences = splitSentences(raw);
+  const analysis = analyzeDraft(raw, sentences, template);
+  const title = input.metadata.title || buildTemplateTitle(analysis, template, styleProfile);
+  const digest = buildTemplateDigest(analysis, template);
+  const sections = buildTemplateSections(analysis, template);
+  const expertReviews = buildTemplateExpertReviews(analysis, template, sections);
+  const quote = expertReviews.valueMentor.goldenLines[0];
+  const markdown = [
+    `# ${title}`,
+    "",
+    ...analysis.opening,
+    "",
+    digest,
+    "",
+    `> ${quote}`,
+    "",
+    ...sections.flatMap((section) => [`## ${section.heading}`, "", section.body]),
+    "",
+    analysis.closing
+  ].join("\n\n");
+  const html = renderProfessionalWechatHtml({
+    title,
+    digest,
+    sections,
+    expertReviews,
+    openingParagraphs: analysis.opening,
+    closingLead: "写到最后，我想把这篇文章收束成一句话：",
+    closingClaim: quote,
+    closingPrompt: analysis.closing,
+    inlineCount: config.image?.inlineImageCount ?? 2
+  });
+  return {
+    input,
+    blueprint: {
+      coreClaim: analysis.coreClaim,
+      audience: analysis.audience,
+      articleType: template.name,
+      titleCandidates: buildTemplateTitleCandidates(analysis, template),
+      digest,
+      sections: sections.map((section) => ({ heading: section.heading, role: section.role, summary: firstSentence(section.body).slice(0, 80) })),
+      closingPrompt: analysis.closing,
+      shareReason: analysis.shareReason
+    },
+    styleProfile,
+    expertReviews,
+    title,
+    digest,
+    markdown,
+    html,
+    changeLog: [
+      `套用文本模板：${template.name}`,
+      "参考 BND-1 写作修饰原则，强化第一人称、具体场景、核心矛盾和短段落",
+      "重写标题候选、引用金句、小标题和行动清单，使其统一服务核心观点"
+    ],
+    riskNotes: [],
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -451,6 +521,355 @@ function buildTitleCandidates(title, styleProfile) {
   ];
   if (hasQuestionPattern) candidates[2] = `${title}，为什么总是卡住？`;
   return candidates;
+}
+
+function normalizeRawText(text) {
+  return String(text || "")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function analyzeDraft(raw, sentences, template) {
+  const first = sentences[0] || firstSentence(raw) || "这个想法值得被认真整理";
+  const second = sentences[1] || "";
+  const hasCareer = /自由职业|职业|转型|定位|自媒体/.test(raw);
+  const hasCourse = /课程|训练|提问|技术|疗法|概念|框架|练习|学员/.test(raw);
+  const scene = extractScene(raw, first);
+  const tension = extractTension(raw, first, second);
+  const coreClaim = extractCoreClaim(raw, first, template);
+  const audience = hasCareer
+    ? "自由职业者、职业转型者、正在重新定位自己的人"
+    : hasCourse
+      ? "学习者、实践者、需要把知识转成行动的人"
+      : "正在整理想法、寻找方法和行动感的公众号读者";
+  const goldenLine = buildGoldenLine({ raw, coreClaim, tension, template });
+  const actionItems = buildActionItems({ raw, template });
+  return {
+    raw,
+    sentences,
+    scene,
+    tension,
+    coreClaim,
+    audience,
+    goldenLine,
+    actionItems,
+    shareReason: "读者能带走一个更清楚的判断，以及下一步可以做什么",
+    opening: buildTemplateOpening({ scene, tension, coreClaim, template }),
+    closing: buildTemplateClosing({ goldenLine, template }),
+    details: sentences.slice(0, 8)
+  };
+}
+
+function extractScene(raw, first) {
+  const scenePatterns = [
+    /今天听到(.+?)[。！？]/,
+    /最近(.+?)[。！？]/,
+    /有个(.+?)[。！？]/,
+    /我在(.+?)[。！？]/
+  ];
+  for (const pattern of scenePatterns) {
+    const matched = raw.match(pattern)?.[0];
+    if (matched) return trimSentence(matched);
+  }
+  return trimSentence(first);
+}
+
+function extractTension(raw, first, second) {
+  if (/不是.+而是/.test(raw)) {
+    return trimSentence(raw.match(/不是[^。！？]+而是[^。！？]+/)?.[0] || first);
+  }
+  if (/退|反复|进进退退|卡住|困惑|误解/.test(raw)) {
+    return "我们以为问题出在没有前进，但真正需要看的，可能是为什么要退回来确认。";
+  }
+  if (/问题|矛盾|疑问|难/.test(raw)) {
+    return trimSentence(first);
+  }
+  return trimSentence(second || first);
+}
+
+function extractCoreClaim(raw, first, template) {
+  if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
+    return "有些后退不是失败，而是在确认这条路是否真的适合自己。";
+  }
+  if (/写文章/.test(raw) && /不是/.test(raw) && /而是/.test(raw)) {
+    return "写文章不是倒出来，而是整理顺序";
+  }
+  if (template.id === "knowledge_course") {
+    return "真正重要的不是记住概念，而是理解概念背后的立场和使用边界。";
+  }
+  if (template.id === "practical_method") {
+    return "把问题拆成可执行步骤，行动才会从模糊变得稳定。";
+  }
+  return trimSentence(first);
+}
+
+function buildTemplateTitle(analysis, template, styleProfile) {
+  const candidates = buildTemplateTitleCandidates(analysis, template);
+  if (styleProfile?.titlePatterns?.some((pattern) => pattern.includes("短标题"))) {
+    return candidates.find((candidate) => candidate.length <= 18) || candidates[0];
+  }
+  return candidates[0];
+}
+
+function buildTemplateTitleCandidates(analysis, template) {
+  const subject = compactSubject(analysis.coreClaim || analysis.scene);
+  if (template.id === "knowledge_course") {
+    return [
+      `${subject}，最容易误解的其实是这一步`,
+      `一篇讲清楚${subject}的公众号文章`,
+      `学${subject}，先别急着套模板`,
+      `${subject}真正重要的不是概念`,
+      `把${subject}讲明白：立场、框架和练习`
+    ];
+  }
+  if (template.id === "practical_method") {
+    return [
+      `${subject}：先把这 3 步走清楚`,
+      `别急着行动，先拆开${subject}`,
+      `${subject}的实战方法：从混乱到可执行`,
+      `真正有效的方法，不是更用力`,
+      `把${subject}落地，关键是顺序`
+    ];
+  }
+  return [
+    analysis.raw.includes("自由职业") ? "自由职业不是一直往前冲" : null,
+    subject.includes("写文章") ? subject : null,
+    subject.includes("自由职业") ? "自由职业不是一直往前冲" : `${subject}，不是你以为的那样`,
+    subject.includes("退") ? "退回来，不一定是失败" : `${subject}背后，藏着一个更重要的问题`,
+    `我后来才明白：${subject}`,
+    `真正的成长，可能不是一直往前`,
+    `${subject}：在反复里确认自己`
+  ].filter(Boolean);
+}
+
+function buildTemplateDigest(analysis, template) {
+  if (template.id === "knowledge_course") {
+    return `${analysis.coreClaim} 这篇文章会按“立场、概念、框架、误区、练习”的顺序，把它讲到能理解也能使用。`.slice(0, 120);
+  }
+  if (template.id === "practical_method") {
+    return `${analysis.coreClaim} 与其急着找答案，不如先把问题拆成能执行的步骤。`.slice(0, 120);
+  }
+  return `${analysis.coreClaim} 很多时候，真正值得写下来的不是结论，而是你怎么在具体经历里看见它。`.slice(0, 120);
+}
+
+function buildTemplateOpening({ scene, tension, coreClaim, template }) {
+  if (template.id === "knowledge_course") {
+    return [
+      "学一个知识点，最容易卡住的地方，往往不是记不住定义。",
+      `真正会影响理解的，是你有没有看见它背后的问题：${tension}`,
+      `所以这篇文章不急着堆概念，我想先把一个核心判断说清楚：${coreClaim}`
+    ];
+  }
+  if (template.id === "practical_method") {
+    return [
+      "很多方法之所以用不起来，不是因为人不够努力。",
+      `更常见的情况是：${tension}`,
+      `这篇文章想解决的，就是把这件事从一个模糊问题，拆成几步可以执行的动作。`
+    ];
+  }
+  return [
+    `我先从一个很具体的画面说起：${scene}`,
+    `这个画面打动我的地方，不在于它多特别，而在于它把一个我们常常说不清的状态呈现了出来：${tension}`,
+    `我后来意识到，真正重要的可能是：${coreClaim}`
+  ];
+}
+
+function buildTemplateSections(analysis, template) {
+  if (template.id === "knowledge_course") return buildKnowledgeSections(analysis);
+  if (template.id === "practical_method") return buildPracticalSections(analysis);
+  return buildStorySections(analysis);
+}
+
+function buildStorySections(analysis) {
+  return [
+    {
+      heading: "先看见那个具体画面",
+      role: "用场景建立读者进入感",
+      body: [
+        analysis.scene,
+        "好的文章不是一上来就讲大道理，而是先让读者看见一个具体时刻。",
+        `这个时刻之所以值得写，是因为它不只是事件本身。它背后真正牵动人的，是：${analysis.tension}`
+      ].join("\n\n")
+    },
+    {
+      heading: "真正的重点，不在表面的进退",
+      role: "提炼反常识洞察",
+      body: [
+        analysis.coreClaim,
+        "我们习惯把事情理解成一条向前的线：只要足够努力，就应该一直更快、更高、更确定。",
+        "但很多真实的成长不是这样。它更像反复靠近一个方向，再退回来确认：这是不是我真正想走的路？这个高度是不是现在的我能承受的？"
+      ].join("\n\n")
+    },
+    {
+      heading: "把它放回自己的生活里",
+      role: "连接作者经验和读者共鸣",
+      body: [
+        "我自己也会在类似的节奏里摇摆。",
+        "有些选择看起来像撤回，其实是在问自己：我是在靠近想成为的自己，还是只是在完成别人眼里的前进？",
+        "当这个问题被问出来，很多原本让人自责的反复，就有了新的解释。"
+      ].join("\n\n")
+    },
+    {
+      heading: "如果你也在反复，请先别急着否定自己",
+      role: "给读者可带走判断",
+      body: [
+        "当然，不是所有退回都值得美化。有些退回确实是逃避，有些反复也需要被看见。",
+        "但我们至少可以多问一步：这次停下来，是因为我害怕，还是因为我正在校准方向？",
+        "当你能区分这两件事，进退就不再只是成败判断，而会变成一次更诚实的自我确认。"
+      ].join("\n\n")
+    }
+  ];
+}
+
+function buildKnowledgeSections(analysis) {
+  return [
+    {
+      heading: "先别急着背概念",
+      role: "建立知识学习的核心问题",
+      body: [
+        analysis.coreClaim,
+        "很多知识之所以学完用不上，是因为我们只记住了名词，却没有理解它在解决什么问题。",
+        `所以第一步，是先把这个疑问放到台面上：${analysis.tension}`
+      ].join("\n\n")
+    },
+    {
+      heading: "把概念放回使用场景",
+      role: "解释概念和边界",
+      body: [
+        "一个概念只有放回具体场景里，才会变得清楚。",
+        "你可以先问三个问题：它想区分什么？它想改变什么？它在什么情况下不需要被使用？",
+        "这三个问题，比单纯背定义更重要。"
+      ].join("\n\n")
+    },
+    {
+      heading: "用一张地图理解它",
+      role: "形成框架化理解",
+      body: [
+        "我更建议把它理解成一张地图，而不是一组标准答案。",
+        "地图的意义，不是让你机械照走，而是帮你知道自己现在在哪一层：是在描述问题，还是在看影响；是在表明立场，还是在追问背后的价值。",
+        "一旦层次清楚，提问和行动都会更稳。"
+      ].join("\n\n")
+    },
+    {
+      heading: "练习时，先追求清楚，不追求漂亮",
+      role: "落到练习建议",
+      body: [
+        "真正好的练习，不是问出看起来很高级的问题。",
+        "而是对方能听懂、能回答，并且回答之后对自己多一点理解。",
+        "如果一个问题让人更紧、更羞愧、更像是在被评判，方向可能就偏了。"
+      ].join("\n\n")
+    }
+  ];
+}
+
+function buildPracticalSections(analysis) {
+  return [
+    {
+      heading: "先把问题说具体",
+      role: "定义痛点",
+      body: [
+        analysis.tension,
+        "问题越抽象，行动就越容易变成用力但无效。",
+        "所以第一步不是做更多，而是把问题从一个模糊判断，改写成一个具体场景。"
+      ].join("\n\n")
+    },
+    {
+      heading: "再找到真正影响结果的顺序",
+      role: "提炼原则",
+      body: [
+        analysis.coreClaim,
+        "很多事情不是缺方法，而是顺序错了。",
+        "先判断目标，再拆步骤；先确认边界，再投入资源；先做最小尝试，再决定要不要加码。"
+      ].join("\n\n")
+    },
+    {
+      heading: "可以这样做三步",
+      role: "给出执行路径",
+      body: analysis.actionItems.map((item, index) => `${index + 1}. ${item}`).join("\n\n")
+    },
+    {
+      heading: "最后留一个检查点",
+      role: "避免盲目执行",
+      body: [
+        "做完之后，不要只问结果好不好。",
+        "还要问：这个动作有没有让我更清楚？有没有让我更靠近真正想要的状态？有没有暴露下一步该调整的地方？",
+        "能回答这三个问题，行动才不是白忙。"
+      ].join("\n\n")
+    }
+  ];
+}
+
+function buildTemplateExpertReviews(analysis, template, sections) {
+  return {
+    chiefEditor: {
+      summary: `这篇文章适合采用「${template.name}」：先建立核心矛盾，再让标题、引用、小标题和结尾围绕同一个判断推进。`,
+      suggestions: ["开头保留具体画面或具体问题", "每个小节只推进一个层次", "结尾给读者一个能转发的判断"]
+    },
+    valueMentor: {
+      highlights: [analysis.scene, analysis.coreClaim],
+      goldenLines: [
+        analysis.goldenLine,
+        "好的文章不是替读者下结论，而是帮读者把自己的处境看清楚。"
+      ]
+    },
+    structureMaster: {
+      background: analysis.scene,
+      tensionOrConclusion: analysis.tension,
+      actionItems: analysis.actionItems.length ? analysis.actionItems : sections.slice(0, 3).map((section) => section.heading)
+    }
+  };
+}
+
+function buildGoldenLine({ raw, coreClaim, template }) {
+  if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
+    return "退一步不是放弃，而是在确认这条路是否真的属于你。";
+  }
+  if (template.id === "knowledge_course") {
+    return "真正掌握一个概念，不是记住定义，而是知道它在什么地方能帮人看见新的可能。";
+  }
+  if (template.id === "practical_method") {
+    return "方法不是让你更用力，而是让你知道下一步该往哪里用力。";
+  }
+  return coreClaim.length <= 34 ? coreClaim : "真正重要的不是说出答案，而是看见答案背后的那个问题。";
+}
+
+function buildActionItems({ raw, template }) {
+  if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
+    return ["记录这次想退回来的原因", "分辨它是逃避，还是方向校准", "用一个更小的动作继续验证自己"];
+  }
+  if (template.id === "knowledge_course") {
+    return ["先说清这个概念在解决什么问题", "用一个真实场景检验它是否适用", "把练习目标改写成对方听得懂的问题"];
+  }
+  if (template.id === "practical_method") {
+    return ["把问题改写成一个具体场景", "列出最小可执行的第一步", "做完后复盘它让你更清楚了什么"];
+  }
+  return ["找出最能说明问题的具体画面", "写下这件事真正触动你的判断", "把判断改写成读者能带走的一句话"];
+}
+
+function buildTemplateClosing({ goldenLine, template }) {
+  if (template.id === "knowledge_course") {
+    return `如果你也在学这个知识点，可以先不急着追求提问多漂亮。先确认它有没有让你更清楚地看见人、问题和可能性。${goldenLine}`;
+  }
+  if (template.id === "practical_method") {
+    return `如果这篇文章对你有帮助，建议先从第一步开始做。真正改变状态的，往往不是更大的决心，而是一个更清楚的下一步。`;
+  }
+  return `如果你也正在类似的阶段，愿你先不要急着否定自己。也许你不是停滞了，而是在认真确认自己真正要去的方向。如果这句话对你有一点触动，欢迎点个赞，也转给那个正在反复确认方向的人。`;
+}
+
+function compactSubject(value) {
+  const text = String(value || "")
+    .replace(/[。！？!?；;]+$/g, "")
+    .replace(/^真正重要的可能是：?/, "")
+    .replace(/^有些/, "")
+    .trim();
+  if (text.includes("自由职业")) return "自由职业不是一直往前冲";
+  if (text.length <= 18) return text || "这件事";
+  return text.slice(0, 18);
+}
+
+function trimSentence(value) {
+  return String(value || "").trim().replace(/[。！？!?；;]+$/g, "。");
 }
 
 function buildDigest(intro, fullText) {

@@ -7,6 +7,7 @@ import { transformArticle } from "./articleTransformer.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
 import { loadStyleProfile } from "./styleProfile.js";
+import { getArticleTemplate } from "./articleTemplates.js";
 import { saveArticleArchive, saveTask } from "./pipeline.js";
 import { uploadProcessedArticleWithStrategy } from "../wechat/uploadStrategy.js";
 import { ensureDir, readJson, slugify, writeJson } from "../utils/files.js";
@@ -198,6 +199,7 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
       label: "公众号成稿",
       title: workflow.data.transformed.title,
       digest: workflow.data.transformed.digest,
+      template: getArticleTemplate(workflow.config).name,
       editable: true
     });
     return;
