@@ -64,6 +64,29 @@ test("transformArticle supports selectable article templates", async () => {
   assert.match(practical.markdown, /可以这样做三步/);
 });
 
+test("transformArticle understands externalization concept drafts", async () => {
+  const input = {
+    rawText: [
+      "外化部分",
+      "斯特林说，火是对消化系统的外化，衣服是对体温调节能力的外化，而最重要的一次外化是社群本身。",
+      "赫拉利说人类会讲故事，斯特林告诉我们讲故事这件事在人类大脑里有专用硬件。",
+      "我对叙事里面的外化有新的理解：外化的重点是关系强化，人与外界，人与熟悉群体，人与更大的陌生群体。",
+      "外化将个人与社会建构剥离，例如有钱才算成功，女生要生儿育女。"
+    ].join("\n\n"),
+    metadata: {}
+  };
+  const article = await transformArticle(input, {
+    config: { articleTemplate: { selectedId: "auto" }, image: { inlineImageCount: 1 } },
+    aiClient: { json: async (_system, _user, fallback) => fallback() }
+  });
+  assert.equal(article.title, "所谓外化：不是逃离自己，而是重新理解关系");
+  assert.equal(article.blueprint.articleType, "知识精讲型");
+  assert.match(article.markdown, /火，是对消化系统的外化/);
+  assert.match(article.markdown, /外化不是把问题推开/);
+  assert.doesNotMatch(article.title, /成长|往前/);
+  assert.doesNotMatch(article.markdown, /真正的成长，可能不是一直往前/);
+});
+
 test("createVisualBrief creates cover and inline prompts", async () => {
   const article = {
     title: "文章标题",

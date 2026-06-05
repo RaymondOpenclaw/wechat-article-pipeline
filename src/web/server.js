@@ -211,6 +211,10 @@ async function homePage() {
         </div>
         <label>文本模板</label>
         <div class="expert-list">
+          <label class="expert-item">
+            <input type="radio" name="articleTemplateId" value="auto" ${config.articleTemplate?.selectedId === "auto" ? "checked" : ""} />
+            <span><strong>自动判断</strong>根据文章内容自动选择故事洞察型、知识精讲型或实战方法型。</span>
+          </label>
           ${ARTICLE_TEMPLATES.map((template) => `
             <label class="expert-item">
               <input type="radio" name="articleTemplateId" value="${escapeHtml(template.id)}" ${config.articleTemplate?.selectedId === template.id ? "checked" : ""} />
@@ -302,7 +306,7 @@ async function homePage() {
         fileName: document.querySelector("#fileName").value,
         text: document.querySelector("#articleText").value,
         expertIds: [...document.querySelectorAll('input[name="expertIds"]:checked')].map(input => input.value),
-        articleTemplateId: document.querySelector('input[name="articleTemplateId"]:checked')?.value || "story_insight"
+        articleTemplateId: document.querySelector('input[name="articleTemplateId"]:checked')?.value || "auto"
       });
       if (!data.ok) { statusEl.textContent = data.error; return; }
       updateWorkflow(data.workflow);

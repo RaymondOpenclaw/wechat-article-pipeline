@@ -7,7 +7,7 @@ const defaultConfig = {
   useHistoryStyle: true,
   rewriteDepth: "light",
   articleTemplate: {
-    selectedId: "story_insight"
+    selectedId: "auto"
   },
   styleEngine: {
     autoRefreshEnabled: true,

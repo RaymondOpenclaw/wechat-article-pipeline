@@ -27,6 +27,20 @@ export function getArticleTemplate(config = {}) {
   return ARTICLE_TEMPLATES.find((template) => template.id === selectedId) || ARTICLE_TEMPLATES[0];
 }
 
+export function inferArticleTemplateId(text, config = {}) {
+  const explicitId = config.articleTemplate?.selectedId || config.articleTemplateId;
+  if (explicitId && explicitId !== "auto") return explicitId;
+  const raw = String(text || "");
+  if (/外化|叙事|疗法|概念|框架|课程|学员|练习|社会建构|建构/.test(raw)) return "knowledge_course";
+  if (/步骤|方法|怎么做|流程|方案|执行|清单|避坑/.test(raw)) return "practical_method";
+  return "story_insight";
+}
+
+export function getArticleTemplateForText(text, config = {}) {
+  const selectedId = inferArticleTemplateId(text, config);
+  return ARTICLE_TEMPLATES.find((template) => template.id === selectedId) || ARTICLE_TEMPLATES[0];
+}
+
 export function articleTemplatePrompt(config = {}) {
   const template = getArticleTemplate(config);
   return {

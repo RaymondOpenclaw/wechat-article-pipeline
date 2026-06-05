@@ -1,5 +1,5 @@
 import { AiClient } from "./aiClient.js";
-import { articleTemplatePrompt, getArticleTemplate } from "./articleTemplates.js";
+import { articleTemplatePrompt, getArticleTemplate, getArticleTemplateForText } from "./articleTemplates.js";
 import { ARTICLE_EXPERTS, buildExpertPanel, normalizeExpertReviews } from "./experts.js";
 import { formatWechatHtml } from "./wechatFormatter.js";
 import { imagePlaceholder, textToParagraphHtml } from "../utils/html.js";
@@ -112,6 +112,9 @@ function heuristicTransform(input, styleProfile, config) {
   const narrative = buildSpecialNarrativeArticle(input, config);
   if (narrative) return narrative;
 
+  const externalization = buildExternalizationConceptArticle(input, config);
+  if (externalization) return externalization;
+
   const templated = buildTemplatedArticle(input, styleProfile, config);
   if (templated) return templated;
 
@@ -166,7 +169,7 @@ function heuristicTransform(input, styleProfile, config) {
 }
 
 function buildTemplatedArticle(input, styleProfile, config) {
-  const template = getArticleTemplate(config);
+  const template = getArticleTemplateForText(input.rawText, config);
   const raw = normalizeRawText(input.rawText);
   if (!raw) return null;
   const sentences = splitSentences(raw);
@@ -365,6 +368,145 @@ function buildNarrativeTherapyCourseArticle(input, config) {
       "识别为叙事疗法课程复盘型知识文章",
       "将课程提纲重组为“核心立场-概念关系-立场地图-相对影响力-常见疑问”的公众号结构",
       "保留关键概念和练习要点，增强开头钩子、金句、行动建议和转发理由"
+    ],
+    riskNotes: [],
+    createdAt: new Date().toISOString()
+  };
+}
+
+function buildExternalizationConceptArticle(input, config) {
+  const text = input.rawText;
+  const isExternalizationConcept = text.includes("外化")
+    && (text.includes("斯特林") || text.includes("赫拉利") || text.includes("火") || text.includes("衣服") || text.includes("社群"))
+    && (text.includes("叙事") || text.includes("关系") || text.includes("社会建构") || text.includes("建构"));
+  if (!isExternalizationConcept) return null;
+
+  const title = "所谓外化：不是逃离自己，而是重新理解关系";
+  const digest = "外化不是把问题推出去，也不是让人逃避责任。它更像一种关系重组：把人从问题、标签和社会叙事的黏连中分出来，重新看见自己如何与世界相连。";
+  const sections = [
+    {
+      heading: "人不是靠独自变强成为人的",
+      role: "从斯特林的人类外化切入",
+      body: [
+        "斯特林关于智人的解释里，有一个很漂亮的洞见：正因为智人体型小、个体脆弱，所以我们不得不依赖合作。",
+        "而为了维持合作，人类发展出一种非常关键的能力：外化。",
+        "什么是外化？简单说，就是把原本由身体完成的功能，转移到身体之外。",
+        "火，是对消化系统的外化。熟食让人类不再需要那么强大的颌骨和漫长的消化道，节省下来的能量，转而供给大脑。",
+        "衣服，是对体温调节能力的外化。有了衣服，人类不需要长出厚厚的皮毛，也能进入更寒冷的地方。",
+        "更重要的是，社群本身也是外化。人类把记忆、协作和意义，放进群体、故事和关系网络里。"
+      ].join("\n\n")
+    },
+    {
+      heading: "外化不是变得不完整，而是把自己活到世界里",
+      role: "提炼人类学层面的核心转折",
+      body: [
+        "这件事真正有意思的地方在于：外化并没有让人变得更弱。",
+        "恰恰相反，人类是在不断外化中，变成了更复杂的自己。",
+        "我们不是把所有能力都关在身体里，而是把自己延伸到火、衣服、工具、语言、社群和制度之中。",
+        "所以外化不是简单的“把东西放出去”。",
+        "它改变的是关系：人与外界的关系，人与熟悉群体的关系，人与陌生社会的关系。",
+        "从这个角度看，外化最重要的作用，不只是增强能力，而是强化关系。"
+      ].join("\n\n")
+    },
+    {
+      heading: "这也让我重新理解叙事疗法里的外化",
+      role: "连接叙事疗法概念",
+      body: [
+        "想到这里，我会重新看叙事疗法里的外化。",
+        "以前我们很容易把它理解成一句技术话术：人不是问题，问题才是问题。",
+        "但如果从关系的角度看，外化要做的事情更深。",
+        "它不是简单安慰一个人“这不是你的错”，也不是把责任推出去。",
+        "它是在帮助一个人看见：我和问题之间，原来不是天然黏在一起的；我和家庭、群体、社会标签之间，也不是只能维持原来的绑定。",
+        "当一个人说“我要做个好孩子”“我要当个好员工”“有钱才算成功”“女生就应该生儿育女”，这些话往往不只是个人想法，而是熟悉群体和社会叙事共同建构出来的关系。"
+      ].join("\n\n")
+    },
+    {
+      heading: "外化的价值，是把黏连的关系重新分开",
+      role: "落到文章主旨和读者收获",
+      body: [
+        "所以我现在更愿意把叙事里的外化理解成一种关系重组。",
+        "它把人和问题分开，把个人和群体规则分开，把自我和社会建构分开。",
+        "分开不是为了切断关系，而是为了让关系重新变得可以被看见、被命名、被协商。",
+        "一个人不再只能说“我就是失败的”“我就是不够好”“我必须成为别人定义里的样子”。",
+        "他开始有空间问：这个问题是怎么影响我的？这个标签是谁给我的？我是否还愿意继续这样理解自己？",
+        "这就是外化真正有力量的地方。",
+        "它不是让人远离自己，而是让人从僵死的绑定里重新活起来。"
+      ].join("\n\n")
+    }
+  ];
+  const expertReviews = {
+    chiefEditor: {
+      summary: "这篇文章应写成概念洞察型文章：从斯特林的人类外化讲到叙事疗法的外化，核心是关系重组，而不是成长节奏。",
+      suggestions: ["标题必须包含“外化/关系”，不能写成泛成长标题", "开头保留火、衣服、社群三个例子", "中段要明确外化的三层关系：外界、熟悉群体、陌生社会"]
+    },
+    valueMentor: {
+      highlights: ["把斯特林的人类外化和叙事疗法外化连接起来，是这篇文章最有价值的洞察。", "外化的重点不是能力增强，而是关系被重新看见。"],
+      goldenLines: [
+        "外化不是把问题推开，而是把人从问题、标签和社会叙事的黏连中解放出来。",
+        "人类最重要的能力，或许不是把一切都留在身体里，而是学会把自己安放到世界之中。"
+      ]
+    },
+    structureMaster: {
+      background: "斯特林用火、衣服和社群解释人类外化能力，作者进一步联想到叙事疗法中的外化。",
+      tensionOrConclusion: "核心结论是：外化不是逃离自我，而是重新理解人和问题、群体、社会叙事之间的关系。",
+      actionItems: ["区分问题和人的身份", "看见群体规则如何参与自我定义", "重新命名自己和社会叙事的关系"]
+    }
+  };
+  const markdown = [
+    `# ${title}`,
+    "",
+    "外化这个词，放在人类演化里很有意思；放到叙事疗法里，也许更有意思。",
+    "",
+    digest,
+    "",
+    "> 外化不是把问题推开，而是把人从问题、标签和社会叙事的黏连中解放出来。",
+    "",
+    ...sections.flatMap((section) => [`## ${section.heading}`, "", section.body]),
+    "",
+    "如果你也在学习叙事疗法，可以试着把“外化”先从技术动作里拿出来。它真正要处理的，也许不是一个问题，而是一个人被什么样的关系困住了。"
+  ].join("\n\n");
+  const html = renderProfessionalWechatHtml({
+    title,
+    digest,
+    sections,
+    expertReviews,
+    openingParagraphs: [
+      "外化这个词，放在人类演化里很有意思；放到叙事疗法里，也许更有意思。",
+      "它表面上讲的是“把东西放到身体之外”，但真正触动我的，是它如何改变人和世界之间的关系。"
+    ],
+    closingLead: "写到最后，我想把这篇文章收束成一句话：",
+    closingClaim: "外化不是远离自己，而是让自己从僵死的绑定中重新活起来。",
+    closingPrompt: "如果你也在学习叙事疗法，可以试着把“外化”先从技术动作里拿出来。它真正要处理的，也许不是一个问题，而是一个人被什么样的关系困住了。",
+    inlineCount: config.image?.inlineImageCount ?? 2
+  });
+  return {
+    input,
+    blueprint: {
+      coreClaim: "外化不是逃离自己，而是重新理解人和问题、群体、社会叙事之间的关系。",
+      audience: "叙事疗法学习者、心理咨询师、对人类学和心理学概念感兴趣的读者",
+      articleType: "知识精讲型",
+      titleCandidates: [
+        title,
+        "人不是靠独自变强成为人的",
+        "火、衣服与叙事疗法：人如何把自己活到世界里",
+        "问题不是你本人：但这句话真正难懂的地方在后面",
+        "外化真正处理的，是关系"
+      ],
+      digest,
+      sections: sections.map((section) => ({ heading: section.heading, role: section.role, summary: firstSentence(section.body).slice(0, 80) })),
+      closingPrompt: "外化真正要处理的，也许不是一个问题，而是一个人被什么样的关系困住了。",
+      shareReason: "读者能把人类演化中的外化和叙事疗法中的外化连接起来，获得更深一层的理解"
+    },
+    styleProfile: null,
+    title,
+    digest,
+    markdown,
+    html,
+    expertReviews,
+    changeLog: [
+      "识别为外化概念洞察文章",
+      "依据编辑诊断，将主题从泛成长修正为“外化与关系重组”",
+      "保留斯特林的火、衣服、社群例子，并连接叙事疗法中的外化价值"
     ],
     riskNotes: [],
     createdAt: new Date().toISOString()

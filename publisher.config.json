@@ -4,7 +4,7 @@
   "useHistoryStyle": true,
   "rewriteDepth": "professional_wechat",
   "articleTemplate": {
-    "selectedId": "story_insight"
+    "selectedId": "auto"
   },
   "styleEngine": {
     "autoRefreshEnabled": true,
