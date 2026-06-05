@@ -1,0 +1,7 @@
+interface:
+  display_name: "WeChat Draft Publisher"
+  short_description: "Prepare styled WeChat drafts with images"
+  brand_color: "#136F63"
+  default_prompt: "Use $wechat-draft-publisher to polish my article, apply my WeChat writing style, generate images, and prepare a confirmed draft upload."
+policy:
+  allow_implicit_invocation: true

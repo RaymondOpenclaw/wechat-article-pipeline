@@ -1,0 +1,7 @@
+interface:
+  display_name: "Agnes Image Gen"
+  short_description: "Generate images with Agnes AI"
+  brand_color: "#136F63"
+  default_prompt: "Use $agnes-image-gen to generate a polished image from my prompt."
+policy:
+  allow_implicit_invocation: true

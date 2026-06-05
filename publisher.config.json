@@ -1,0 +1,36 @@
+{
+  "author": "",
+  "profileName": "default",
+  "useHistoryStyle": true,
+  "rewriteDepth": "professional_wechat",
+  "styleEngine": {
+    "autoRefreshEnabled": true,
+    "autoRefreshHours": 24
+  },
+  "experts": {
+    "enabled": true,
+    "selectedIds": [
+      "chief_editor",
+      "value_mentor",
+      "structure_master"
+    ]
+  },
+  "image": {
+    "enabled": true,
+    "coverSize": "900x383",
+    "inlineImageCount": 2,
+    "defaultStyle": "cinematic WeChat editorial visual, moody dark warm tones, quiet emotional lighting, minimal realistic composition, premium magazine feeling"
+  },
+  "remoteUpload": {
+    "enabled": true,
+    "host": "81.68.126.119",
+    "configPath": "config.json",
+    "privateKeyPath": "/Users/ray/Downloads/TT_ECS_Openclaw.pem",
+    "workDir": "/tmp/wechat-draft-upload"
+  },
+  "wechat": {
+    "showCoverPic": 1,
+    "needOpenComment": 0,
+    "onlyFansCanComment": 0
+  }
+}
