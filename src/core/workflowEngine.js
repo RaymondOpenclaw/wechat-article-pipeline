@@ -4,6 +4,7 @@ import { AiClient } from "./aiClient.js";
 import { readArticle } from "./articleReader.js";
 import { loadConfig } from "./config.js";
 import { transformArticle } from "./articleTransformer.js";
+import { reviewArticleDraft } from "./editorReview.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
 import { loadStyleProfile } from "./styleProfile.js";
@@ -15,6 +16,7 @@ import { ensureDir, readJson, slugify, writeJson } from "../utils/files.js";
 export const WORKFLOW_STEPS = [
   { id: "style", name: "读取风格库", description: "加载个人写作风格和标准化提示词。", editable: false },
   { id: "transform", name: "文章成稿", description: "专家组打磨，生成公众号文章和手机 HTML。", editable: true },
+  { id: "editor_review", name: "文章编辑审稿", description: "检查文章是否读懂原文、逻辑通顺、观点正确。", editable: false },
   { id: "visual", name: "配图 Brief", description: "基于文章结构生成封面与正文图提示词。", editable: true },
   { id: "images", name: "生成配图", description: "生成封面和正文插图。", editable: false },
   { id: "archive", name: "本地归档", description: "保存 Markdown、HTML、JSON 和图片记录。", editable: false },
@@ -127,6 +129,7 @@ export async function runWorkflowUntil({
   while (nextPendingStep(workflow)) {
     const next = nextPendingStep(workflow);
     workflow = await runWorkflowStep({ cwd, workflowId, stepId: next, aiClient });
+    if (next === "editor_review" && workflow.data.editorReview?.approved === false) break;
     if (next === untilStepId || workflow.status === "failed") break;
   }
   return workflow;
@@ -144,8 +147,14 @@ export async function updateWorkflowNode({
       ...(workflow.data.transformed || {}),
       ...pick(patch, ["title", "digest", "markdown", "html"])
     };
-    resetFrom(workflow, "visual");
-    addLog(workflow, "transform", "已手动修改文章节点，后续配图/归档/上传节点需要重新执行。");
+    delete workflow.data.editorReview;
+    delete workflow.data.visualBrief;
+    delete workflow.data.images;
+    delete workflow.data.taskPath;
+    delete workflow.data.archive;
+    delete workflow.data.uploadResult;
+    resetFrom(workflow, "editor_review");
+    addLog(workflow, "transform", "已手动修改文章节点，后续审稿/配图/归档/上传节点需要重新执行。");
   } else if (node === "visual") {
     workflow.data.visualBrief = patch;
     resetFrom(workflow, "images");
@@ -161,6 +170,7 @@ export function workflowToProcessed(workflow) {
   if (!workflow.data.transformed) return null;
   return {
     ...workflow.data.transformed,
+    editorReview: workflow.data.editorReview || null,
     visualBrief: workflow.data.visualBrief || null,
     images: workflow.data.images || [],
     taskPath: workflow.data.taskPath || "",
@@ -205,6 +215,13 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
     return;
   }
   if (stepId === "visual") {
+    if (workflow.steps.find((step) => step.id === "editor_review")?.status !== "done") {
+      throw new Error("请先执行文章编辑审稿节点。");
+    }
+    assertData(workflow, "editorReview", "请先执行文章编辑审稿节点。");
+    if (workflow.data.editorReview?.approved === false) {
+      throw new Error("文章编辑审稿未通过，请先根据审稿意见修改文章节点。");
+    }
     assertData(workflow, "transformed", "请先执行文章成稿节点。");
     workflow.data.visualBrief = await createVisualBrief(workflow.data.transformed, { config: workflow.config, aiClient });
     addLog(workflow, stepId, `生成 ${workflow.data.visualBrief.inlinePrompts?.length || 0} 个正文配图提示词。`);
@@ -214,6 +231,25 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
       theme: workflow.data.visualBrief.theme,
       inlineCount: workflow.data.visualBrief.inlinePrompts?.length || 0,
       editable: true
+    });
+    return;
+  }
+  if (stepId === "editor_review") {
+    assertData(workflow, "transformed", "请先执行文章成稿节点。");
+    const input = workflow.data.input || await readArticle(workflow.inputPath);
+    workflow.data.input = input;
+    workflow.data.editorReview = await reviewArticleDraft(input, workflow.data.transformed, { aiClient });
+    const issueCount = workflow.data.editorReview.issues?.length || 0;
+    const statusText = workflow.data.editorReview.approved ? "通过" : "建议修改";
+    addLog(workflow, stepId, `编辑审稿${statusText}：${workflow.data.editorReview.summary}${issueCount ? `（${issueCount} 个问题）` : ""}`, workflow.data.editorReview.approved ? "info" : "warning");
+    recordArtifact(workflow, stepId, {
+      type: "editor-review",
+      label: "文章编辑审稿",
+      verdict: workflow.data.editorReview.verdict,
+      approved: workflow.data.editorReview.approved,
+      scores: workflow.data.editorReview.scores,
+      issues: workflow.data.editorReview.issues,
+      recommendedEdits: workflow.data.editorReview.recommendedEdits
     });
     return;
   }

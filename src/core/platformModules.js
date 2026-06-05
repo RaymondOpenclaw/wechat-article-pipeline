@@ -24,6 +24,14 @@ export const PLATFORM_MODULES = [
     outputs: ["wechat-compatible-html"]
   },
   {
+    id: "editor_review",
+    name: "文章编辑审稿",
+    level: "core",
+    responsibility: "以专业公众号编辑身份检查成稿是否读懂原文、逻辑通顺、观点忠实，未通过时暂停后续配图、归档和上传。",
+    entrypoints: ["reviewArticleDraft()", "POST /api/workflows/run-step"],
+    outputs: ["editor-review artifact", "scores", "issues", "recommendedEdits"]
+  },
+  {
     id: "visual_engine",
     name: "配图 Brief 与图片生成",
     level: "core",
@@ -57,6 +65,7 @@ export function getPlatformArchitecture() {
     coreEngines: PLATFORM_MODULES.filter((module) => module.level === "core"),
     workflowPolicy: {
       confirmationRequiredBeforeUpload: true,
+      editorApprovalRequiredBeforeVisual: true,
       nodeLevelAudit: true,
       editableNodes: ["transform", "visual"],
       localArchiveRequiredBeforeUpload: true
