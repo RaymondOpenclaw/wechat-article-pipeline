@@ -1,6 +1,7 @@
 import { AiClient } from "./aiClient.js";
 import { ARTICLE_EXPERTS, buildExpertPanel, normalizeExpertReviews } from "./experts.js";
-import { imagePlaceholder, textToParagraphHtml, wrapWechatHtml } from "../utils/html.js";
+import { formatWechatHtml } from "./wechatFormatter.js";
+import { imagePlaceholder, textToParagraphHtml } from "../utils/html.js";
 
 export async function transformArticle(input, { styleProfile = null, config = {}, aiClient = new AiClient() } = {}) {
   const fallback = () => heuristicTransform(input, styleProfile, config);
@@ -77,7 +78,7 @@ function normalizeTransformResult(result, input, styleProfile, config) {
     title: String(result.title || result.blueprint?.titleCandidates?.[0] || input.metadata.title || "未命名文章").trim(),
     digest: String(result.digest || result.blueprint?.digest || "").slice(0, 120),
     markdown,
-    html: wrapWechatHtml(html),
+    html: formatWechatHtml(html),
     changeLog: Array.isArray(result.changeLog) ? result.changeLog : ["完成专业公众号成稿与移动端排版优化"],
     riskNotes: Array.isArray(result.riskNotes) ? result.riskNotes : [],
     createdAt: new Date().toISOString()
@@ -597,6 +598,7 @@ function splitSentences(text) {
 function polishParagraph(sentence, { lead = "" } = {}) {
   const cleaned = String(sentence || "")
     .trim()
+    .replace(/[。！？!?；;]+$/g, "")
     .replace(/^我(最近)?(发现|觉得|意识到)，?/, "")
     .replace(/^我刚刚有个想法，?/, "")
     .replace(/^所以我(觉得|认为)，?/, "")

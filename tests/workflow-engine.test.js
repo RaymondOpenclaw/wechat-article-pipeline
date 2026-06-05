@@ -24,10 +24,15 @@ test("article workflow runs node by node to archive", async () => {
   assert.equal(workflow.steps[0].status, "pending");
   let updated = await runWorkflowStep({ cwd, workflowId: workflow.id, stepId: "style", aiClient });
   assert.equal(updated.steps[0].status, "done");
+  assert.equal(updated.steps[0].logs.length > 0, true);
+  assert.equal(updated.steps[0].artifacts.at(-1).type, "style-profile");
   updated = await runWorkflowUntil({ cwd, workflowId: workflow.id, untilStepId: "archive", aiClient });
   assert.equal(updated.data.images.length, 2);
   assert.ok(updated.data.archive.dirPath.includes("data/articles"));
   assert.equal(updated.steps.find((step) => step.id === "archive").status, "done");
+  assert.equal(updated.steps.find((step) => step.id === "transform").artifacts.at(-1).type, "article");
+  assert.equal(updated.steps.find((step) => step.id === "visual").artifacts.at(-1).type, "visual-brief");
+  assert.equal(updated.steps.find((step) => step.id === "archive").artifacts.at(-1).type, "archive");
   const processed = workflowToProcessed(updated);
   assert.equal(processed.images.length, 2);
   await fs.rm(cwd, { recursive: true, force: true });

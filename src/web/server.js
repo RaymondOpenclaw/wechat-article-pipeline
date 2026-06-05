@@ -7,8 +7,10 @@ import { loadConfig } from "../core/config.js";
 import { AiClient } from "../core/aiClient.js";
 import { ARTICLE_EXPERTS } from "../core/experts.js";
 import { processArticle } from "../core/pipeline.js";
-import { historyInboxPath, importHistoryLinks, importHistoryTexts, loadStyleProfile, refreshStyleProfile } from "../core/styleProfile.js";
+import { historyInboxPath, loadStyleProfile } from "../core/styleProfile.js";
 import { inspectStyleEngine, refreshStyleArtifacts } from "../core/styleEngine.js";
+import { importStyleLibraryLinks, importStyleLibraryTexts, inspectStyleLibrary, refreshStyleLibrary } from "../core/styleLibrary.js";
+import { getPlatformArchitecture } from "../core/platformModules.js";
 import { createArticleWorkflow, listWorkflows, loadWorkflow, runWorkflowStep, runWorkflowUntil, updateWorkflowNode, workflowToProcessed } from "../core/workflowEngine.js";
 import { uploadProcessedArticleWithStrategy } from "../wechat/uploadStrategy.js";
 import { escapeHtml, replaceImagePlaceholderHtml } from "../utils/html.js";
@@ -28,6 +30,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/profile/import-text") return json(response, await importTextApi(request));
     if (request.method === "POST" && url.pathname === "/api/profile/refresh") return json(response, await refreshProfileApi());
     if (request.method === "GET" && url.pathname === "/api/profile") return json(response, await profileApi());
+    if (request.method === "GET" && url.pathname === "/api/style-library") return json(response, await styleLibraryApi());
+    if (request.method === "GET" && url.pathname === "/api/platform/architecture") return json(response, { ok: true, architecture: getPlatformArchitecture() });
     if (request.method === "GET" && url.pathname === "/api/style/inspect") return json(response, await styleInspectApi());
     if (request.method === "POST" && url.pathname === "/api/style/refresh-artifacts") return json(response, await refreshStyleArtifactsApi());
     if (request.method === "GET" && url.pathname === "/api/secrets/status") return json(response, await secretsStatusApi());
@@ -59,7 +63,7 @@ async function scheduleStyleArtifactsRefresh() {
     try {
       const latest = await loadConfig(cwd);
       if (!latest.styleEngine?.autoRefreshEnabled) return;
-      await refreshStyleArtifacts({ cwd, profileName: latest.profileName, aiClient: new AiClient() });
+      await refreshStyleLibrary({ cwd, profileName: latest.profileName, aiClient: new AiClient(), source: "scheduled-refresh" });
       console.log(`[style-engine] refreshed profile artifacts at ${new Date().toISOString()}`);
     } catch (error) {
       console.log(`[style-engine] refresh skipped: ${error.message}`);
@@ -71,6 +75,7 @@ async function homePage() {
   const config = await loadConfig(cwd);
   const profile = await loadStyleProfile(cwd, config.profileName);
   const secrets = await secureSecretsStatus(cwd);
+  const architecture = getPlatformArchitecture();
   const inboxPath = historyInboxPath(cwd, config.profileName);
   return `<!doctype html>
 <html lang="zh-CN">
@@ -123,8 +128,12 @@ async function homePage() {
     .workflow-node.done { background:#eef7f3; border-color:#b9ded0; }
     .workflow-node.running { background:#eff6ff; border-color:#bfdbfe; }
     .workflow-node.failed { background:#fff1f2; border-color:#fecdd3; }
+    .workflow-node.selected { outline:2px solid #136f63; outline-offset:2px; }
     .workflow-node strong { display:block; font-size:13px; margin-bottom:4px; }
     .workflow-node span { color:var(--muted); font-size:12px; }
+    .workflow-node button { width:100%; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+    .node-detail { margin:12px 0 16px; padding:12px; border:1px solid var(--line); border-radius:8px; background:#fbfcfd; }
+    .mini-badge { display:inline-flex; margin:6px 6px 0 0; padding:3px 7px; border-radius:999px; background:#eef7f3; color:#136f63; font-size:12px; font-weight:650; }
     .node-editor textarea { min-height:90px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
     @media (max-width: 980px) { main { grid-template-columns:1fr; padding:14px; } .flow { grid-template-columns:1fr 1fr; padding:14px 14px 0; } header { align-items:flex-start; flex-direction:column; } }
     @media (max-width: 560px) { .flow { grid-template-columns:1fr; } .phone-shell { max-width:100%; box-shadow:none; } }
@@ -165,6 +174,8 @@ async function homePage() {
           <button id="secretStatusBtn" class="secondary">检查配置</button>
         </div>
         <pre id="secretBox">${escapeHtml(JSON.stringify(maskSecretStatus(secrets), null, 2))}</pre>
+        <h2>平台模块</h2>
+        <pre>${escapeHtml(JSON.stringify(architecture, null, 2))}</pre>
       </section>
       <section class="panel tab-panel hidden" data-panel="style">
         <h2>风格库模块</h2>
@@ -225,6 +236,7 @@ async function homePage() {
   <script>
     let currentTaskPath = "";
     let currentWorkflowId = "";
+    let selectedStepId = "";
     const statusEl = document.querySelector("#status");
     const resultEl = document.querySelector("#result");
     const workflowEl = document.querySelector("#workflowBox");
@@ -347,6 +359,7 @@ async function homePage() {
       document.querySelector("#applyVisualPatchBtn").disabled = !workflow.data?.visualBrief;
       document.querySelector("#uploadBtn").disabled = !workflow.data?.archive;
       workflowEl.innerHTML = renderWorkflow(workflow);
+      bindWorkflowButtons(workflow);
       resultEl.innerHTML = workflow.processed ? renderResult(workflow.processed) : "";
       if (workflow.data?.transformed) {
         document.querySelector("#articlePatch").value = JSON.stringify({
@@ -358,10 +371,30 @@ async function homePage() {
         document.querySelector("#visualPatch").value = JSON.stringify(workflow.data.visualBrief, null, 2);
       }
     }
+    function bindWorkflowButtons(workflow) {
+      workflowEl.querySelectorAll("[data-step-select]").forEach(button => {
+        button.onclick = () => {
+          selectedStepId = button.dataset.stepSelect;
+          workflowEl.innerHTML = renderWorkflow(workflow);
+          bindWorkflowButtons(workflow);
+        };
+      });
+    }
     function renderWorkflow(workflow) {
-      const steps = workflow.steps.map(step => '<div class="workflow-node ' + step.status + '"><strong>' + escapeHtml(step.name) + '</strong><span>' + escapeHtml(step.status) + '</span></div>').join("");
+      if (!selectedStepId) selectedStepId = workflow.currentStep || workflow.steps.find(step => step.status !== "pending")?.id || workflow.steps[0]?.id || "";
+      const steps = workflow.steps.map(step => {
+        const badges = [
+          step.editable ? '<span class="mini-badge">可修改</span>' : '',
+          step.artifacts?.length ? '<span class="mini-badge">产物 ' + step.artifacts.length + '</span>' : '',
+          step.logs?.length ? '<span class="mini-badge">日志 ' + step.logs.length + '</span>' : ''
+        ].join("");
+        return '<div class="workflow-node ' + step.status + (step.id === selectedStepId ? ' selected' : '') + '"><button data-step-select="' + escapeHtml(step.id) + '"><strong>' + escapeHtml(step.name) + '</strong><span>' + escapeHtml(step.status) + ' · ' + escapeHtml(step.description) + '</span>' + badges + '</button></div>';
+      }).join("");
+      const selected = workflow.steps.find(step => step.id === selectedStepId) || workflow.steps[0];
+      const nodeLogs = (selected?.logs || []).map(log => '[' + log.at + '] ' + log.level + ' · ' + log.message).join("\\n");
+      const artifacts = JSON.stringify(selected?.artifacts || [], null, 2);
       const logs = workflow.logs.slice(-20).map(log => '[' + log.at + '] ' + log.stepId + ' · ' + log.message).join("\\n");
-      return '<div class="workflow-steps">' + steps + '</div><h2>执行日志</h2><pre>' + escapeHtml(logs || "暂无日志") + '</pre>';
+      return '<div class="workflow-steps">' + steps + '</div><section class="node-detail"><h2>节点审计：' + escapeHtml(selected?.name || "") + '</h2><pre>' + escapeHtml(nodeLogs || "这个节点还没有日志") + '</pre><h2>节点产物</h2><pre>' + escapeHtml(artifacts) + '</pre></section><h2>全局执行日志</h2><pre>' + escapeHtml(logs || "暂无日志") + '</pre>';
     }
     function parsePatch(selector) {
       try {
@@ -389,7 +422,7 @@ async function importLinksApi(request) {
   const body = await readBody(request);
   const config = await loadConfig(cwd);
   const links = String(body.links || "").split(/\r?\n/);
-  const result = await importHistoryLinks(links, { cwd, profileName: config.profileName, aiClient: new AiClient() });
+  const result = await importStyleLibraryLinks(links, { cwd, profileName: config.profileName, aiClient: new AiClient() });
   return { ok: true, ...result };
 }
 
@@ -403,7 +436,7 @@ async function importTextApi(request) {
   await ensureDir(inboxDir);
   const sourcePath = path.join(inboxDir, `${Date.now()}-${slugify(title)}.md`);
   await fs.writeFile(sourcePath, `---\ntitle: ${title}\n---\n\n${text}\n`, "utf8");
-  const result = await importHistoryTexts([{
+  const result = await importStyleLibraryTexts([{
     title,
     text,
     sourcePath
@@ -413,7 +446,7 @@ async function importTextApi(request) {
 
 async function refreshProfileApi() {
   const config = await loadConfig(cwd);
-  const result = await refreshStyleProfile({ cwd, profileName: config.profileName, aiClient: new AiClient() });
+  const result = await refreshStyleLibrary({ cwd, profileName: config.profileName, aiClient: new AiClient() });
   return { ok: true, ...result };
 }
 
@@ -425,6 +458,11 @@ async function profileApi() {
 async function styleInspectApi() {
   const config = await loadConfig(cwd);
   return { ok: true, ...(await inspectStyleEngine({ cwd, profileName: config.profileName })) };
+}
+
+async function styleLibraryApi() {
+  const config = await loadConfig(cwd);
+  return { ok: true, library: await inspectStyleLibrary({ cwd, profileName: config.profileName }) };
 }
 
 async function refreshStyleArtifactsApi() {
@@ -523,7 +561,24 @@ function publicWorkflow(workflow) {
   const processed = workflowToProcessed(workflow);
   return {
     ...workflow,
+    config: publicConfig(workflow.config),
     processed: processed ? publicArticle(processed) : null
+  };
+}
+
+function publicConfig(config = {}) {
+  return {
+    ...config,
+    remoteUpload: config.remoteUpload ? {
+      ...config.remoteUpload,
+      password: config.remoteUpload.password ? "***" : undefined,
+      privateKey: config.remoteUpload.privateKey ? "***" : undefined,
+      privateKeyPath: config.remoteUpload.privateKeyPath ? "***" : undefined
+    } : undefined,
+    wechat: config.wechat ? {
+      ...config.wechat,
+      appSecret: config.wechat.appSecret ? "***" : undefined
+    } : undefined
   };
 }
 

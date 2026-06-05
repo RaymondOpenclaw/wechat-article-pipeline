@@ -12,12 +12,12 @@ import { uploadProcessedArticleWithStrategy } from "../wechat/uploadStrategy.js"
 import { ensureDir, readJson, slugify, writeJson } from "../utils/files.js";
 
 export const WORKFLOW_STEPS = [
-  { id: "style", name: "读取风格库", description: "加载个人写作风格和标准化提示词。" },
-  { id: "transform", name: "文章成稿", description: "专家组打磨，生成公众号文章和手机 HTML。" },
-  { id: "visual", name: "配图 Brief", description: "基于文章结构生成封面与正文图提示词。" },
-  { id: "images", name: "生成配图", description: "生成封面和正文插图。" },
-  { id: "archive", name: "本地归档", description: "保存 Markdown、HTML、JSON 和图片记录。" },
-  { id: "upload", name: "上传草稿箱", description: "确认后通过云主机上传到微信公众号草稿箱。" }
+  { id: "style", name: "读取风格库", description: "加载个人写作风格和标准化提示词。", editable: false },
+  { id: "transform", name: "文章成稿", description: "专家组打磨，生成公众号文章和手机 HTML。", editable: true },
+  { id: "visual", name: "配图 Brief", description: "基于文章结构生成封面与正文图提示词。", editable: true },
+  { id: "images", name: "生成配图", description: "生成封面和正文插图。", editable: false },
+  { id: "archive", name: "本地归档", description: "保存 Markdown、HTML、JSON 和图片记录。", editable: false },
+  { id: "upload", name: "上传草稿箱", description: "确认后通过云主机上传到微信公众号草稿箱。", editable: false }
 ];
 
 export function workflowsDir(cwd = process.cwd()) {
@@ -53,7 +53,7 @@ export async function createArticleWorkflow({
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     config: resolvedConfig,
-    steps: WORKFLOW_STEPS.map((step) => ({ ...step, status: "pending", startedAt: "", finishedAt: "" })),
+    steps: WORKFLOW_STEPS.map((step) => ({ ...step, status: "pending", startedAt: "", finishedAt: "", logs: [], artifacts: [] })),
     logs: [],
     data: {}
   };
@@ -175,6 +175,13 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
       ? await loadStyleProfile(cwd, workflow.config.profileName)
       : null;
     addLog(workflow, stepId, workflow.data.styleProfile ? "已加载个人风格库。" : "未启用或未找到风格库，将使用通用公众号风格。");
+    recordArtifact(workflow, stepId, {
+      type: "style-profile",
+      label: workflow.data.styleProfile ? "个人风格库" : "通用公众号风格",
+      summary: workflow.data.styleProfile
+        ? `${workflow.data.styleProfile.articleCount || 0} 篇历史文章特征`
+        : "未加载历史风格"
+    });
     return;
   }
   if (stepId === "transform") {
@@ -186,12 +193,26 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
       aiClient
     });
     addLog(workflow, stepId, `生成标题：${workflow.data.transformed.title}`);
+    recordArtifact(workflow, stepId, {
+      type: "article",
+      label: "公众号成稿",
+      title: workflow.data.transformed.title,
+      digest: workflow.data.transformed.digest,
+      editable: true
+    });
     return;
   }
   if (stepId === "visual") {
     assertData(workflow, "transformed", "请先执行文章成稿节点。");
     workflow.data.visualBrief = await createVisualBrief(workflow.data.transformed, { config: workflow.config, aiClient });
     addLog(workflow, stepId, `生成 ${workflow.data.visualBrief.inlinePrompts?.length || 0} 个正文配图提示词。`);
+    recordArtifact(workflow, stepId, {
+      type: "visual-brief",
+      label: "配图 Brief",
+      theme: workflow.data.visualBrief.theme,
+      inlineCount: workflow.data.visualBrief.inlinePrompts?.length || 0,
+      editable: true
+    });
     return;
   }
   if (stepId === "images") {
@@ -200,6 +221,12 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
       ? await generateImages(workflow.data.visualBrief, workflow.data.transformed, { cwd, config: workflow.config, aiClient })
       : [];
     addLog(workflow, stepId, `生成图片 ${workflow.data.images.length} 张。`);
+    recordArtifact(workflow, stepId, {
+      type: "images",
+      label: "封面与正文配图",
+      count: workflow.data.images.length,
+      paths: workflow.data.images.map((image) => image.localPath)
+    });
     return;
   }
   if (stepId === "archive") {
@@ -208,6 +235,14 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
     workflow.data.taskPath = await saveTask(cwd, processed);
     workflow.data.archive = await saveArticleArchive(cwd, { ...processed, taskPath: workflow.data.taskPath });
     addLog(workflow, stepId, `已保存到：${workflow.data.archive.dirPath}`);
+    recordArtifact(workflow, stepId, {
+      type: "archive",
+      label: "本地归档",
+      dirPath: workflow.data.archive.dirPath,
+      markdownPath: workflow.data.archive.markdownPath,
+      htmlPath: workflow.data.archive.htmlPath,
+      jsonPath: workflow.data.archive.jsonPath
+    });
     return;
   }
   if (stepId === "upload") {
@@ -215,6 +250,12 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
     const processed = workflowToProcessed(workflow);
     workflow.data.uploadResult = await uploadProcessedArticleWithStrategy(processed, { cwd, config: workflow.config });
     addLog(workflow, stepId, `草稿箱创建成功：${workflow.data.uploadResult.mediaId}`);
+    recordArtifact(workflow, stepId, {
+      type: "wechat-draft",
+      label: "微信公众号草稿",
+      mediaId: workflow.data.uploadResult.mediaId,
+      uploadedAt: new Date().toISOString()
+    });
     return;
   }
 }
@@ -235,17 +276,30 @@ function resetFrom(workflow, stepId) {
     step.status = "pending";
     step.startedAt = "";
     step.finishedAt = "";
+    step.artifacts = [];
   }
   workflow.status = "paused";
   workflow.currentStep = stepId;
 }
 
 function addLog(workflow, stepId, message, level = "info") {
-  workflow.logs.push({
+  const entry = {
     at: new Date().toISOString(),
     stepId,
     level,
     message
+  };
+  workflow.logs.push(entry);
+  const step = workflow.steps.find((item) => item.id === stepId);
+  if (step) step.logs.push(entry);
+}
+
+function recordArtifact(workflow, stepId, artifact) {
+  const step = workflow.steps.find((item) => item.id === stepId);
+  if (!step) return;
+  step.artifacts.push({
+    at: new Date().toISOString(),
+    ...artifact
   });
 }
 
