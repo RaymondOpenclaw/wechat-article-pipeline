@@ -363,7 +363,7 @@ async function homePage() {
     function renderResult(article) {
       if (!article) return "";
       const images = article.images.map(image => '<div><img src="' + image.localPath.replace(location.origin, "") + '" /><div class="muted">' + image.kind + '</div></div>').join("");
-      return '<div class="article"><h1>' + escapeHtml(article.title) + '</h1><p class="muted">' + escapeHtml(article.digest) + '</p>' + renderArchive(article.archive) + renderEditorReview(article.editorReview) + '<div class="image-grid">' + images + '</div><div class="phone-shell">' + article.html + '</div>' + renderExperts(article.expertReviews) + '<h2>改动说明</h2><pre>' + escapeHtml(article.changeLog.join("\\n")) + '</pre><h2>风险提示</h2><pre>' + escapeHtml((article.riskNotes || []).join("\\n") || "无") + '</pre></div>';
+      return '<div class="article"><h1>' + escapeHtml(article.title) + '</h1><p class="muted">' + escapeHtml(article.digest) + '</p>' + renderArchive(article.archive) + renderContentBrief(article.contentBrief) + renderEditorReview(article.editorReview) + '<div class="image-grid">' + images + '</div><div class="phone-shell">' + article.html + '</div>' + renderExperts(article.expertReviews) + '<h2>改动说明</h2><pre>' + escapeHtml(article.changeLog.join("\\n")) + '</pre><h2>风险提示</h2><pre>' + escapeHtml((article.riskNotes || []).join("\\n") || "无") + '</pre></div>';
     }
     function updateWorkflow(workflow) {
       currentWorkflowId = workflow.id;
@@ -426,6 +426,10 @@ async function homePage() {
     function renderExperts(reviews) {
       if (!reviews) return "";
       return '<h2>专家打磨记录</h2><pre>' + escapeHtml(JSON.stringify(reviews, null, 2)) + '</pre>';
+    }
+    function renderContentBrief(brief) {
+      if (!brief) return "";
+      return '<section style="margin:14px 0;padding:12px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;"><strong>内容完整度补全：' + escapeHtml(brief.completenessScore || "") + '/100</strong><p class="muted">' + escapeHtml(brief.writingFocus || brief.coreClaim || "") + '</p><pre style="margin:8px 0 0;">' + escapeHtml(JSON.stringify({ coreClaim: brief.coreClaim, missingInfo: brief.missingInfo, safeSupplements: brief.safeSupplements, needsUserInput: brief.needsUserInput, suggestedOutline: brief.suggestedOutline }, null, 2)) + '</pre></section>';
     }
     function renderEditorReview(review) {
       if (!review) return "";

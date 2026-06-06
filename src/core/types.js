@@ -22,6 +22,21 @@
  */
 
 /**
+ * @typedef {Object} ContentBrief
+ * @property {string} coreClaim
+ * @property {string[]} intendedReaders
+ * @property {string} contentType
+ * @property {number} completenessScore
+ * @property {{area: string, gap: string, whyItMatters: string, howToFill: string}[]} missingInfo
+ * @property {{type: string, content: string, usage: string}[]} safeSupplements
+ * @property {string[]} needsUserInput
+ * @property {string[]} factualBoundaries
+ * @property {{heading: string, purpose: string, keyPoints: string[]}[]} suggestedOutline
+ * @property {string} writingFocus
+ * @property {string} completionPrompt
+ */
+
+/**
  * @typedef {Object} StyleProfile
  * @property {string} profileName
  * @property {number} articleCount
@@ -63,6 +78,7 @@
  * @property {ArticleInput} input
  * @property {ArticleBlueprint} blueprint
  * @property {StyleProfile|null} styleProfile
+ * @property {ContentBrief|null} contentBrief
  * @property {Object|null} expertReviews
  * @property {VisualBrief} visualBrief
  * @property {string} title

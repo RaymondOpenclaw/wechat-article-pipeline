@@ -22,6 +22,8 @@ test("processArticle creates preview artifacts without external AI", async () =>
     }
   });
   assert.equal(processed.title, "测试文章");
+  assert.equal(Boolean(processed.contentBrief), true);
+  assert.ok(processed.contentBrief.completenessScore > 0);
   assert.equal(processed.images.length, 2);
   assert.ok(processed.archive.dirPath.includes("data/articles"));
   assert.match(await fs.readFile(processed.archive.markdownPath, "utf8"), /title: 测试文章/);

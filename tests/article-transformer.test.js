@@ -25,14 +25,23 @@ test("transformArticle creates a professional WeChat-ready draft fallback", asyn
 });
 
 test("transformArticle infers a concise title from rough ideas", async () => {
+  const contentBrief = {
+    coreClaim: "写文章要先整理顺序",
+    safeSupplements: [{ type: "结构桥梁", content: "读者需要看到顺序如何影响理解。", usage: "放在中段" }],
+    needsUserInput: [],
+    factualBoundaries: [],
+    suggestedOutline: []
+  };
   const article = await transformArticle({
     rawText: "我刚刚有个想法，写文章不是把脑子里的东西倒出来，而是帮读者整理出一个可以跟上的顺序。",
     metadata: {}
   }, {
+    contentBrief,
     config: { image: { inlineImageCount: 1 } },
     aiClient: { json: async (_system, _user, fallback) => fallback() }
   });
   assert.equal(article.title, "写文章不是倒出来，而是整理顺序");
+  assert.equal(article.contentBrief.coreClaim, "写文章要先整理顺序");
 });
 
 test("transformArticle supports selectable article templates", async () => {

@@ -4,20 +4,23 @@ import { ARTICLE_EXPERTS, buildExpertPanel, normalizeExpertReviews } from "./exp
 import { formatWechatHtml } from "./wechatFormatter.js";
 import { imagePlaceholder, textToParagraphHtml } from "../utils/html.js";
 
-export async function transformArticle(input, { styleProfile = null, config = {}, aiClient = new AiClient() } = {}) {
-  const fallback = () => heuristicTransform(input, styleProfile, config);
+export async function transformArticle(input, { styleProfile = null, contentBrief = null, config = {}, aiClient = new AiClient() } = {}) {
+  const fallback = () => heuristicTransform(input, styleProfile, config, contentBrief);
   const result = await aiClient.json(
     "你是专业微信公众号写手和主编。只输出 JSON。目标是按作者个人风格写成让读者看得舒服、有收获、愿意点赞转发的公众号成稿；不得虚构事实、不得替换用户立场、不得照搬历史文章原句。",
-    buildTransformPrompt(input, styleProfile, config),
+    buildTransformPrompt(input, styleProfile, contentBrief, config),
     fallback
   );
-  return normalizeTransformResult(result, input, styleProfile, config);
+  return normalizeTransformResult(result, input, styleProfile, contentBrief, config);
 }
 
-function buildTransformPrompt(input, styleProfile, config) {
+function buildTransformPrompt(input, styleProfile, contentBrief, config) {
   return JSON.stringify({
     task: "将用户给的内容编写成专业微信公众号成稿",
     constraints: [
+      "成稿前必须先吸收 contentBrief：补齐读者理解所需的背景、概念、逻辑桥梁、读者疑问和建议结构",
+      "contentBrief 中的 safeSupplements 可以写入正文；needsUserInput 只能作为风险提示或待确认问题，不得编造成事实",
+      "contentBrief 中的 factualBoundaries 是硬边界，不能突破",
       "以专业公众号写手和资深主编的方式重组表达：标题有打开欲，开头从具体场景或反常识切入，正文有洞察密度，结尾能自然带动点赞、在看、转发或留言",
       "先执行 humanizer：去除AI味、空泛套话和总结腔，保留作者口语里的真实感、犹豫感和个人判断",
       "按照用户历史文章的写作特征来写：标题结构、开头方式、段落节奏、常用表达、论证习惯、结尾习惯都要参考 StyleProfile",
@@ -26,7 +29,7 @@ function buildTransformPrompt(input, styleProfile, config) {
       "参考 BND-1/wechat_article_skills 的写作原则：第一人称、观点鲜明但有理有据、真实场景导向、短句短段、不要堆功能/概念列表",
       "标题候选必须覆盖：情绪共鸣型、身份认同型、反常识型、金句提炼型、场景切入型",
       "必须根据 selectedTemplate 组织文章，不要把不同模板混用成松散列表",
-      "不要新增未经原文支持的事实或案例",
+      "不要新增未经原文或 contentBrief.safeSupplements 支持的事实或案例",
       "如果使用个人风格，只迁移结构和表达习惯，不复制历史原句",
       "必须调用 expertPanel 中的专家视角：主编负责成稿质量，价值导师负责闪光点和金句，信息提炼大师负责结构与 Action Items",
       "正文 HTML 中用 {{INLINE_IMAGE_1}} 到 {{INLINE_IMAGE_N}} 标记正文配图位置"
@@ -55,6 +58,7 @@ function buildTransformPrompt(input, styleProfile, config) {
       riskNotes: ["风险提示，没有则为空数组"]
     },
     articleTemplate: articleTemplatePrompt(config),
+    contentBrief,
     metadata: input.metadata,
     styleProfile,
     expertPanel: buildExpertPanel(input, config),
@@ -63,7 +67,7 @@ function buildTransformPrompt(input, styleProfile, config) {
   });
 }
 
-function normalizeTransformResult(result, input, styleProfile, config) {
+function normalizeTransformResult(result, input, styleProfile, contentBrief, config) {
   const inlineCount = Math.max(0, Math.min(3, Number(config.image?.inlineImageCount ?? 2)));
   const markdown = String(result.markdown || input.rawText).trim();
   const normalizedBlueprint = normalizeBlueprint(result.blueprint, input, result.digest);
@@ -78,6 +82,7 @@ function normalizeTransformResult(result, input, styleProfile, config) {
     input,
     blueprint: normalizedBlueprint,
     styleProfile,
+    contentBrief,
     expertReviews,
     title: String(result.title || result.blueprint?.titleCandidates?.[0] || input.metadata.title || "未命名文章").trim(),
     digest: String(result.digest || result.blueprint?.digest || "").slice(0, 120),
@@ -105,18 +110,18 @@ function normalizeBlueprint(blueprint, input, digest = "") {
   };
 }
 
-function heuristicTransform(input, styleProfile, config) {
+function heuristicTransform(input, styleProfile, config, contentBrief = null) {
   const therapyCourse = buildNarrativeTherapyCourseArticle(input, config);
-  if (therapyCourse) return therapyCourse;
+  if (therapyCourse) return attachContentBrief(therapyCourse, contentBrief);
 
   const narrative = buildSpecialNarrativeArticle(input, config);
-  if (narrative) return narrative;
+  if (narrative) return attachContentBrief(narrative, contentBrief);
 
   const externalization = buildExternalizationConceptArticle(input, config);
-  if (externalization) return externalization;
+  if (externalization) return attachContentBrief(externalization, contentBrief);
 
   const templated = buildTemplatedArticle(input, styleProfile, config);
-  if (templated) return templated;
+  if (templated) return attachContentBrief(templated, contentBrief);
 
   const sourceTitle = input.metadata.title || firstHeading(input.rawText);
   const paragraphs = input.rawText
@@ -159,12 +164,29 @@ function heuristicTransform(input, styleProfile, config) {
     html,
     expertReviews,
     changeLog: [
+      contentBrief ? "先执行内容完整度补全，再进入公众号成稿打磨" : "未提供内容补全 Brief，按原文直接成稿",
       `启用专家组：${ARTICLE_EXPERTS.map((expert) => expert.name).join("、")}`,
       "按专业公众号文章节奏重组开头、正文和结尾",
       "强化读者收获、重点句、行动感和点赞转发引导",
       "根据个人风格库约束表达习惯，并完成微信移动端排版"
     ],
     riskNotes: []
+  };
+}
+
+function attachContentBrief(article, contentBrief) {
+  if (!contentBrief) return article;
+  return {
+    ...article,
+    contentBrief,
+    changeLog: [
+      "先执行内容完整度补全，再进入公众号成稿打磨",
+      ...(Array.isArray(article.changeLog) ? article.changeLog : [])
+    ],
+    riskNotes: [
+      ...(Array.isArray(article.riskNotes) ? article.riskNotes : []),
+      ...(Array.isArray(contentBrief.needsUserInput) ? contentBrief.needsUserInput.map((item) => `待作者确认：${item}`) : [])
+    ]
   };
 }
 

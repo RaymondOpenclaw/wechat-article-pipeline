@@ -29,13 +29,16 @@ test("article workflow runs node by node to archive", async () => {
   updated = await runWorkflowUntil({ cwd, workflowId: workflow.id, untilStepId: "archive", aiClient });
   assert.equal(updated.data.images.length, 2);
   assert.ok(updated.data.archive.dirPath.includes("data/articles"));
+  assert.equal(updated.steps.find((step) => step.id === "content_completion").status, "done");
   assert.equal(updated.steps.find((step) => step.id === "editor_review").status, "done");
   assert.equal(updated.steps.find((step) => step.id === "archive").status, "done");
+  assert.equal(updated.steps.find((step) => step.id === "content_completion").artifacts.at(-1).type, "content-brief");
   assert.equal(updated.steps.find((step) => step.id === "transform").artifacts.at(-1).type, "article");
   assert.equal(updated.steps.find((step) => step.id === "editor_review").artifacts.at(-1).type, "editor-review");
   assert.equal(updated.steps.find((step) => step.id === "visual").artifacts.at(-1).type, "visual-brief");
   assert.equal(updated.steps.find((step) => step.id === "archive").artifacts.at(-1).type, "archive");
   const processed = workflowToProcessed(updated);
+  assert.equal(Boolean(processed.contentBrief), true);
   assert.equal(processed.editorReview.approved, true);
   assert.equal(processed.images.length, 2);
   await fs.rm(cwd, { recursive: true, force: true });

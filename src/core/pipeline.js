@@ -4,6 +4,7 @@ import { loadConfig } from "./config.js";
 import { readArticle } from "./articleReader.js";
 import { AiClient } from "./aiClient.js";
 import { loadStyleProfile } from "./styleProfile.js";
+import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
@@ -16,13 +17,15 @@ export async function processArticle(filePath, { cwd = process.cwd(), config = n
   const styleProfile = resolvedConfig.useHistoryStyle
     ? await loadStyleProfile(cwd, resolvedConfig.profileName)
     : null;
-  const transformed = await transformArticle(input, { styleProfile, config: resolvedConfig, aiClient });
+  const contentBrief = await completeArticleInformation(input, { styleProfile, config: resolvedConfig, aiClient });
+  const transformed = await transformArticle(input, { styleProfile, contentBrief, config: resolvedConfig, aiClient });
   const visualBrief = await createVisualBrief(transformed, { config: resolvedConfig, aiClient });
   const images = resolvedConfig.image?.enabled
     ? await generateImages(visualBrief, transformed, { cwd, config: resolvedConfig, aiClient })
     : [];
   const processed = {
     ...transformed,
+    contentBrief,
     visualBrief,
     images
   };

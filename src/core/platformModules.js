@@ -24,6 +24,14 @@ export const PLATFORM_MODULES = [
     outputs: ["wechat-compatible-html"]
   },
   {
+    id: "content_completion",
+    name: "内容完整度补全",
+    level: "core",
+    responsibility: "在文章成稿前补齐背景、概念、逻辑桥梁、读者疑问和建议大纲，同时标出不能编造的事实边界。",
+    entrypoints: ["completeArticleInformation()", "POST /api/workflows/run-step"],
+    outputs: ["content-brief artifact", "missingInfo", "safeSupplements", "suggestedOutline"]
+  },
+  {
     id: "editor_review",
     name: "文章编辑审稿",
     level: "core",
@@ -65,6 +73,7 @@ export function getPlatformArchitecture() {
     coreEngines: PLATFORM_MODULES.filter((module) => module.level === "core"),
     workflowPolicy: {
       confirmationRequiredBeforeUpload: true,
+      contentCompletionRequiredBeforeTransform: true,
       editorApprovalRequiredBeforeVisual: true,
       nodeLevelAudit: true,
       editableNodes: ["transform", "visual"],

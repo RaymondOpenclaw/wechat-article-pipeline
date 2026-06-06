@@ -3,6 +3,7 @@ import path from "node:path";
 import { AiClient } from "./aiClient.js";
 import { readArticle } from "./articleReader.js";
 import { loadConfig } from "./config.js";
+import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
 import { reviewArticleDraft } from "./editorReview.js";
 import { createVisualBrief } from "./visualBrief.js";
@@ -15,6 +16,7 @@ import { ensureDir, readJson, slugify, writeJson } from "../utils/files.js";
 
 export const WORKFLOW_STEPS = [
   { id: "style", name: "读取风格库", description: "加载个人写作风格和标准化提示词。", editable: false },
+  { id: "content_completion", name: "内容完整度补全", description: "补齐背景、概念、逻辑桥梁和读者疑问，形成成稿 Brief。", editable: false },
   { id: "transform", name: "文章成稿", description: "专家组打磨，生成公众号文章和手机 HTML。", editable: true },
   { id: "editor_review", name: "文章编辑审稿", description: "检查文章是否读懂原文、逻辑通顺、观点正确。", editable: false },
   { id: "visual", name: "配图 Brief", description: "基于文章结构生成封面与正文图提示词。", editable: true },
@@ -170,6 +172,7 @@ export function workflowToProcessed(workflow) {
   if (!workflow.data.transformed) return null;
   return {
     ...workflow.data.transformed,
+    contentBrief: workflow.data.contentBrief || workflow.data.transformed.contentBrief || null,
     editorReview: workflow.data.editorReview || null,
     visualBrief: workflow.data.visualBrief || null,
     images: workflow.data.images || [],
@@ -195,11 +198,36 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
     });
     return;
   }
+  if (stepId === "content_completion") {
+    const input = workflow.data.input || await readArticle(workflow.inputPath);
+    workflow.data.input = input;
+    workflow.data.contentBrief = await completeArticleInformation(input, {
+      styleProfile: workflow.data.styleProfile || null,
+      config: workflow.config,
+      aiClient
+    });
+    const gapCount = workflow.data.contentBrief.missingInfo?.length || 0;
+    const supplementCount = workflow.data.contentBrief.safeSupplements?.length || 0;
+    addLog(workflow, stepId, `内容补全完成：完整度 ${workflow.data.contentBrief.completenessScore}/100，发现 ${gapCount} 个缺口，提供 ${supplementCount} 条安全补充。`);
+    recordArtifact(workflow, stepId, {
+      type: "content-brief",
+      label: "内容完整度补全 Brief",
+      coreClaim: workflow.data.contentBrief.coreClaim,
+      contentType: workflow.data.contentBrief.contentType,
+      completenessScore: workflow.data.contentBrief.completenessScore,
+      missingInfo: workflow.data.contentBrief.missingInfo,
+      safeSupplements: workflow.data.contentBrief.safeSupplements,
+      needsUserInput: workflow.data.contentBrief.needsUserInput,
+      suggestedOutline: workflow.data.contentBrief.suggestedOutline
+    });
+    return;
+  }
   if (stepId === "transform") {
     const input = workflow.data.input || await readArticle(workflow.inputPath);
     workflow.data.input = input;
     workflow.data.transformed = await transformArticle(input, {
       styleProfile: workflow.data.styleProfile || null,
+      contentBrief: workflow.data.contentBrief || null,
       config: workflow.config,
       aiClient
     });
