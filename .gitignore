@@ -6,6 +6,7 @@ data/articles/
 data/secure/
 data/workflows/
 data/web-input/
+data/getnote-source/
 data/wechat-token.json
 generated/images/*
 !generated/images/.gitkeep

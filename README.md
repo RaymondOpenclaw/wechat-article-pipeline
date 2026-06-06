@@ -10,6 +10,7 @@
 - 长期风格沉淀：历史文章会追加保存到 `profiles/default/raw-history.json`，粘贴的文章会落到 `profiles/default/inbox/`。
 - 配图生成：生成 1 张封面图和 1-3 张正文插图；未配置图片模型时生成本地 PNG 占位图用于预览。
 - Agnes 图片生成：优先调用 `skill/agnes-image-gen` 的 Agnes AI 图片模型；不可用时回退本地插画。
+- Get笔记内容来源：可把 Get笔记凭据保存到项目密文库，后续从笔记搜索、详情和素材包进入文章工作流，不依赖 OpenClaw 运行时。
 - 草稿上传：官方 API 获取 `access_token`，上传封面永久素材、正文图片，并创建草稿箱草稿。
 - 双入口：CLI 适合批处理和 skill 封装，Web 台适合人工预览和确认。
 
@@ -49,9 +50,14 @@ node src/cli/index.js profile import-files profiles/default/inbox
 node src/cli/index.js profile refresh
 node src/cli/index.js profile inbox
 node src/cli/index.js profile inspect
+node src/cli/index.js getnote status
+node src/cli/index.js getnote list
+node src/cli/index.js getnote search "叙事疗法 外化" --top-k 3
+node src/cli/index.js getnote create "叙事疗法 外化" --top-k 3
 node src/cli/index.js preview articles/demo.md
 node src/cli/index.js create articles/demo.md --confirm
 node src/cli/index.js validate-wechat
+npm run verify-getnote
 ```
 
 上传命令必须显式带 `--confirm`，否则不会调用微信草稿接口。
@@ -78,6 +84,30 @@ node src/cli/index.js profile refresh
 Web 台也支持直接粘贴历史文章正文，系统会保存成 inbox 里的 Markdown 文件并重新生成风格库。
 
 这些个人文章和生成的风格 JSON 默认被 `.gitignore` 忽略，不会误提交到分享出去的项目里。
+
+## Get笔记独立连接器
+
+Get笔记凭据应保存到项目密文库 `data/secure/secrets.enc.json`，不要写入 `publisher.config.json` 或提交到 git。
+
+独立性验证：
+
+```bash
+npm run verify-getnote
+```
+
+该命令只从项目 `secureVault` 读取 Get笔记凭据，直接调用 `https://openapi.biji.com`，不会依赖 OpenClaw、ClawHub 或 Codex 本地 skill。输出只包含状态和数量，不展示笔记正文。
+
+常用命令：
+
+```bash
+node src/cli/index.js getnote status
+node src/cli/index.js getnote list
+node src/cli/index.js getnote search "关键词" --top-k 3
+node src/cli/index.js getnote detail <note_id>
+node src/cli/index.js getnote create <note_id...|关键词> --top-k 3
+```
+
+`getnote list/search` 默认只展示标题、类型、标签和短片段；`detail/create` 才会读取正文。`getnote create` 会把笔记转换成文章素材包并生成预览归档，不会上传公众号草稿。
 
 ## 文章输入
 

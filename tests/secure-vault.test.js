@@ -8,11 +8,15 @@ test("secure vault encrypts and reads secrets", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-secure-vault-"));
   await writeSecureSecrets(cwd, {
     wechat: { appId: "wx-test", appSecret: "secret" },
-    remoteUpload: { host: "1.2.3.4", username: "ubuntu", privateKeyPem: "KEY" }
+    remoteUpload: { host: "1.2.3.4", username: "ubuntu", privateKeyPem: "KEY" },
+    getnote: { apiKey: "gk_live_test", clientId: "cli_test", keyId: "key-test", expiresAt: 1812252836 }
   });
   const status = await secureSecretsStatus(cwd);
   assert.equal(status.hasWechatCredentials, true);
   assert.equal(status.hasRemotePrivateKey, true);
+  assert.equal(status.hasGetNoteCredentials, true);
+  assert.equal(status.getNoteKeyId, "key-test");
+  assert.equal(status.getNoteExpiresAt, 1812252836);
   const paths = await fs.readdir(path.join(cwd, "data", "secure"));
   assert.ok(paths.includes("secrets.enc.json"));
   const raw = await fs.readFile(path.join(cwd, "data", "secure", "secrets.enc.json"), "utf8");
@@ -21,6 +25,7 @@ test("secure vault encrypts and reads secrets", async () => {
   const secrets = await readSecureSecrets(cwd);
   assert.equal(secrets.wechat.appSecret, "secret");
   assert.equal(secrets.remoteUpload.privateKeyPem, "KEY");
+  assert.equal(secrets.getnote.apiKey, "gk_live_test");
   await fs.rm(cwd, { recursive: true, force: true });
 });
 

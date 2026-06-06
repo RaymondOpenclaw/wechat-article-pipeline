@@ -29,6 +29,9 @@ export async function secureSecretsStatus(cwd = process.cwd()) {
     hasRemoteLogin: Boolean(secrets.remoteUpload?.username),
     hasRemotePassword: Boolean(secrets.remoteUpload?.password),
     hasRemotePrivateKey: Boolean(secrets.remoteUpload?.privateKeyPem || secrets.remoteUpload?.privateKeyPath),
+    hasGetNoteCredentials: Boolean(secrets.getnote?.apiKey && secrets.getnote?.clientId),
+    getNoteKeyId: secrets.getnote?.keyId || "",
+    getNoteExpiresAt: Number(secrets.getnote?.expiresAt || 0),
     updatedAt: secrets.updatedAt || ""
   };
 }
