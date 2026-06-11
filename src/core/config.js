@@ -26,7 +26,8 @@ const defaultConfig = {
   formalIllustration: {
     enabled: true,
     requireConfirmation: true,
-    model: "gpt-image-1",
+    mode: "codex-hosted",
+    model: "gpt-image-2",
     size: "1024x1024",
     quality: "",
     outputFormat: ""

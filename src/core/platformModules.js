@@ -43,9 +43,9 @@ export const PLATFORM_MODULES = [
     id: "formal_illustration_engine",
     name: "ASCII 转 image2 正式插画",
     level: "core",
-    responsibility: "在成稿插入 ASCII sketch 后暂停确认，再调用 image2 生成正式插画，替换回正文原位置并进入上传映射。",
-    entrypoints: ["generateFormalIllustrations()", "POST /api/workflows/run-step"],
-    outputs: ["formal illustration images", "FORMAL_ILLUSTRATION placeholders", "image prompt records"]
+    responsibility: "在成稿插入 ASCII sketch 后暂停确认，生成 Codex 内置 image_gen 宿主请求；宿主图片导入后替换回正文原位置并进入上传映射。",
+    entrypoints: ["generateFormalIllustrations()", "POST /api/workflows/run-step", "npm run prepare-image2", "npm run import-image2"],
+    outputs: ["host image2 request records", "formal illustration images", "FORMAL_ILLUSTRATION placeholders"]
   },
   {
     id: "visual_engine",

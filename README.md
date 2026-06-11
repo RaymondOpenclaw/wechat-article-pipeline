@@ -10,7 +10,7 @@
 - 长期风格沉淀：历史文章会追加保存到 `profiles/default/raw-history.json`，粘贴的文章会落到 `profiles/default/inbox/`。
 - 配图生成：生成 1 张封面图和 1-3 张正文插图；未配置图片模型时生成本地 PNG 占位图用于预览。
 - 正文 ASCII 插画：成稿后使用 `skill/illustration` 在合适段落插入紧凑 ASCII sketch，帮助读者理解结构、关系和步骤。
-- image2 正式插画：Web 工作流会在 ASCII sketch 生成后暂停，确认后调用 ChatGPT/OpenAI 图片生成能力把草图转成正式插画，并替换回正文原位置。
+- image2 正式插画：Web 工作流会在 ASCII sketch 生成后暂停，生成 Codex 内置 `image_gen` 宿主请求；Codex 出图后导入项目并替换回正文原位置。
 - Agnes 图片生成：优先调用 `skill/agnes-image-gen` 的 Agnes AI 图片模型；不可用时回退本地插画。
 - Get笔记内容来源：可把 Get笔记凭据保存到项目密文库，后续从笔记搜索、详情和素材包进入文章工作流，不依赖 OpenClaw 运行时。
 - 草稿上传：官方 API 获取 `access_token`，上传封面永久素材、正文图片，并创建草稿箱草稿。
@@ -37,7 +37,6 @@ OPENAI_API_KEY=
 OPENAI_BASE_URL=https://api.openai.com/v1
 TEXT_MODEL=gpt-4.1-mini
 IMAGE_MODEL=gpt-image-1
-IMAGE2_MODEL=gpt-image-1
 AGNES_API_KEY=
 WECHAT_APP_ID=
 WECHAT_APP_SECRET=
@@ -45,7 +44,7 @@ WECHAT_APP_SECRET=
 
 配图优先使用 `agnes-image-gen`。需要 `python3` 和 `AGNES_API_KEY`；没有 API key 或生成失败时，系统会自动回退到本地插画，不会阻塞文章预览。
 
-正文里的正式插画使用 `formalIllustration` 配置，默认 model 为 `gpt-image-1`，也可用 `IMAGE2_MODEL` 覆盖。Web 端默认先停在 ASCII sketch，点击执行下一节点后才会生成正式插画。
+正文里的正式插画使用 `formalIllustration.mode = "codex-hosted"`：项目只生成结构化 image2 prompt/request，不需要 `OPENAI_API_KEY`；Codex 使用内置 `image_gen` 生成图片后，通过 `npm run import-image2 -- <request-json> <generated-image-path>` 导入。
 
 ## CLI
 
@@ -63,6 +62,8 @@ node src/cli/index.js preview articles/demo.md
 node src/cli/index.js create articles/demo.md --confirm
 node src/cli/index.js validate-wechat
 npm run verify-getnote
+npm run prepare-image2
+npm run import-image2 -- <request-json> <generated-image-path>
 ```
 
 上传命令必须显式带 `--confirm`，否则不会调用微信草稿接口。

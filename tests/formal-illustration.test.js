@@ -6,8 +6,10 @@ import { generateFormalIllustrations } from "../src/core/formalIllustrationGener
 
 const tinyPng = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6360000002000100ffff03000006000557bfab0000000049454e44ae426082", "hex");
 
-test("generateFormalIllustrations replaces ASCII sketches with image2 placeholders", async () => {
+test("generateFormalIllustrations imports Codex-hosted image2 output and replaces ASCII sketches", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-formal-illustration-"));
+  const hostedPath = path.join(cwd, "hosted-image2.png");
+  await fs.writeFile(hostedPath, tinyPng);
   const article = {
     title: "叙事疗法里的外化",
     digest: "把人和问题分开，才会出现新的选择。",
@@ -39,12 +41,12 @@ test("generateFormalIllustrations replaces ASCII sketches with image2 placeholde
 
   const processed = await generateFormalIllustrations(article, {
     cwd,
-    config: { formalIllustration: { enabled: true, model: "gpt-image-1", size: "1024x1024" } },
-    aiClient: { image: async () => tinyPng }
+    config: { formalIllustration: { enabled: true, mode: "codex-hosted", hostedImagePaths: [hostedPath] } }
   });
 
   assert.equal(processed.formalIllustrations.length, 1);
-  assert.equal(processed.formalIllustrations[0].generator, "image2");
+  assert.equal(processed.formalIllustrations[0].generator, "codex-built-in-imagegen");
+  assert.equal(processed.formalIllustrations[0].status, "ready");
   assert.match(processed.markdown, /!\[外化先把人和问题分开/);
   assert.match(processed.html, /\{\{FORMAL_ILLUSTRATION_1\}\}/);
   assert.doesNotMatch(processed.html, /ascii-illustration/);
@@ -53,7 +55,7 @@ test("generateFormalIllustrations replaces ASCII sketches with image2 placeholde
   await fs.rm(cwd, { recursive: true, force: true });
 });
 
-test("generateFormalIllustrations falls back to local PNG when image2 is unavailable", async () => {
+test("generateFormalIllustrations creates host request when Codex image2 output has not been imported", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-formal-illustration-fallback-"));
   const processed = await generateFormalIllustrations({
     title: "成长的进退",
@@ -64,10 +66,11 @@ test("generateFormalIllustrations falls back to local PNG when image2 is unavail
     changeLog: []
   }, {
     cwd,
-    config: { formalIllustration: { enabled: true } },
-    aiClient: { image: async () => null }
+    config: { formalIllustration: { enabled: true, mode: "codex-hosted" } }
   });
-  assert.equal(processed.formalIllustrations[0].generator, "image2-fallback");
+  assert.equal(processed.formalIllustrations[0].generator, "codex-built-in-imagegen-pending");
+  assert.equal(processed.formalIllustrations[0].status, "needs-host-image-generation");
+  assert.match(processed.formalIllustrations[0].requestPath, /data\/image2-requests/);
   const bytes = await fs.readFile(processed.formalIllustrations[0].localPath);
   assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
   await fs.rm(cwd, { recursive: true, force: true });

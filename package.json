@@ -12,7 +12,9 @@
     "test": "node --test tests/*.test.js",
     "preview": "node src/cli/index.js preview",
     "validate-wechat": "node src/cli/index.js validate-wechat",
-    "verify-getnote": "node scripts/verify-getnote-independent.js"
+    "verify-getnote": "node scripts/verify-getnote-independent.js",
+    "prepare-image2": "node scripts/prepare-host-image2.js",
+    "import-image2": "node scripts/import-host-image2.js"
   },
   "engines": {
     "node": ">=20"
