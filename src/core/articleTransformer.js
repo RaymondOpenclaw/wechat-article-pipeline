@@ -753,6 +753,9 @@ function extractTension(raw, first, second) {
 }
 
 function extractCoreClaim(raw, first, template) {
+  if (isSettlingPaceDraft(raw)) {
+    return "人不是机器，很多停顿和后退不是失败，而是在给自己留出消化、恢复和重新出发的时间。";
+  }
   if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
     return "有些后退不是失败，而是在确认这条路是否真的适合自己。";
   }
@@ -797,6 +800,8 @@ function buildTemplateTitleCandidates(analysis, template) {
     ];
   }
   return [
+    isSettlingPaceDraft(analysis.raw) ? "你不是不努力，只是需要先安顿自己" : null,
+    isSettlingPaceDraft(analysis.raw) ? "有些停下来，不是失败" : null,
     analysis.raw.includes("自由职业") ? "自由职业不是一直往前冲" : null,
     subject.includes("写文章") ? subject : null,
     subject.includes("自由职业") ? "自由职业不是一直往前冲" : `${subject}，不是你以为的那样`,
@@ -832,6 +837,14 @@ function buildTemplateOpening({ scene, tension, coreClaim, template }) {
       `这篇文章想解决的，就是把这件事从一个模糊问题，拆成几步可以执行的动作。`
     ];
   }
+  if (/人不是机器|安顿/.test(coreClaim)) {
+    return [
+      "今天有两个事情，放在一起看，突然都指向了同一个问题。",
+      `一个是很现实的工作选择：${scene}`,
+      "另一个是高考之后关于“进步”的提醒：没有进步，有时候也是一种进展。甚至一小段退步，放到人生里看，也可能是一种成长。",
+      `这让我想到：${coreClaim}`
+    ];
+  }
   return [
     `我先从一个很具体的画面说起：${scene}`,
     `这个画面打动我的地方，不在于它多特别，而在于它把一个我们常常说不清的状态呈现了出来：${tension}`,
@@ -842,7 +855,50 @@ function buildTemplateOpening({ scene, tension, coreClaim, template }) {
 function buildTemplateSections(analysis, template) {
   if (template.id === "knowledge_course") return buildKnowledgeSections(analysis);
   if (template.id === "practical_method") return buildPracticalSections(analysis);
+  if (isSettlingPaceDraft(analysis.raw)) return buildSettlingPaceSections(analysis);
   return buildStorySections(analysis);
+}
+
+function buildSettlingPaceSections(analysis) {
+  return [
+    {
+      heading: "两个看起来无关的事情",
+      role: "用两个场景建立文章入口",
+      body: [
+        "今天有两个事情，都让我想到了同一个词：安顿。",
+        "第一个事情，是朋友在担心妹妹的工作。她辞职后想继续找采购相关的工作，因为这份工作能满足收入、胜任感、不需要额外学习这些现实需求。可聊着聊着又会发现，她并不是真的喜欢采购。她找了很久，却一直没有找到所谓“合适”的工作。",
+        "第二个事情，是高考刚结束后，我看到朋友说：没有进步，有时候也是一种进展。甚至一小段退步，放到人生里看，也可能是一种成长。"
+      ].join("\n\n")
+    },
+    {
+      heading: "有些停顿，不是不努力",
+      role: "提炼反常识洞察",
+      body: [
+        analysis.coreClaim,
+        "我们很容易从外面看一个人：怎么还没找到工作？怎么还没有进步？怎么还停在那里？",
+        "但人的内在节奏不总是跟外部要求同步。有些“游移”看起来像不够努力，实际上可能是一个人在确认：我真的要继续走这条路吗？我现在的心力够不够？这件事是不是我真正需要的？",
+        "如果只用结果去判断，很容易把一个人的自我安顿，误读成拖延、懒散或者韧性不够。"
+      ].join("\n\n")
+    },
+    {
+      heading: "现在最难的，是没有时间慢下来",
+      role: "放回社会和工作节奏",
+      body: [
+        "以前在成都工作的时候，遇到不顺心，我是允许自己慢一点的。状态不好的时候，就偷个懒，摸个鱼，缓一两个月。等那口气养回来，人反而能重新出发，做得更好。",
+        "但现在很多工作环境不是这样。效率太高，绩效太紧，资源分配太快。一个人一旦停滞、一旦后退，就可能被打低评价，甚至前面做过的努力也会被否定。",
+        "问题是，大部分人并不是可以瞬间修复的系统。难过、失落、迷茫、疲惫，都需要时间消化。你不能要求一个人今天崩掉，明天就恢复满格。"
+      ].join("\n\n")
+    },
+    {
+      heading: "给自己一点不被追赶的时间",
+      role: "落到读者行动",
+      body: [
+        "所以我们能做的，可能不是逼自己更快振作，而是先允许这件事需要时间。",
+        "通勤的时候，可以有一段路不听课、不刷短视频，只是放空。晚上回家，也不一定马上用刷剧把脑子填满，而是给自己留一点真正安静的时间。逛街、散步、洗澡、发呆，这些看起来没有产出的时刻，可能正是在帮你把心放回原位。",
+        "安顿自己不是躺平。它更像是在对自己说：我知道现在不容易，所以我先把这口气接住。等我能重新看清楚，再继续往前走。"
+      ].join("\n\n")
+    }
+  ];
 }
 
 function buildStorySections(analysis) {
@@ -986,6 +1042,9 @@ function buildTemplateExpertReviews(analysis, template, sections) {
 }
 
 function buildGoldenLine({ raw, coreClaim, template }) {
+  if (isSettlingPaceDraft(raw)) {
+    return "人不是机器，有些停下来，不是放弃，而是在把自己安顿回来。";
+  }
   if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
     return "退一步不是放弃，而是在确认这条路是否真的属于你。";
   }
@@ -999,6 +1058,9 @@ function buildGoldenLine({ raw, coreClaim, template }) {
 }
 
 function buildActionItems({ raw, template }) {
+  if (isSettlingPaceDraft(raw)) {
+    return ["承认这件事需要时间消化", "每天留一段不被内容填满的空白", "等心力回来后，再决定下一步怎么走"];
+  }
   if (/退一步|退回来|进进退退|自由职业/.test(raw)) {
     return ["记录这次想退回来的原因", "分辨它是逃避，还是方向校准", "用一个更小的动作继续验证自己"];
   }
@@ -1018,6 +1080,9 @@ function buildTemplateClosing({ goldenLine, template }) {
   if (template.id === "practical_method") {
     return `如果这篇文章对你有帮助，建议先从第一步开始做。真正改变状态的，往往不是更大的决心，而是一个更清楚的下一步。`;
   }
+  if (/安顿|停下来/.test(goldenLine)) {
+    return `如果你最近也有一点停滞、疲惫、走不动，先别急着把它定义成失败。也许你需要的不是立刻振作，而是给自己一点安顿的时间。${goldenLine} 如果这句话对你有一点帮助，欢迎点个赞，也转给那个最近有点累的人。`;
+  }
   return `如果你也正在类似的阶段，愿你先不要急着否定自己。也许你不是停滞了，而是在认真确认自己真正要去的方向。如果这句话对你有一点触动，欢迎点个赞，也转给那个正在反复确认方向的人。`;
 }
 
@@ -1030,6 +1095,10 @@ function compactSubject(value) {
   if (text.includes("自由职业")) return "自由职业不是一直往前冲";
   if (text.length <= 18) return text || "这件事";
   return text.slice(0, 18);
+}
+
+function isSettlingPaceDraft(text) {
+  return /安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(String(text || ""));
 }
 
 function trimSentence(value) {

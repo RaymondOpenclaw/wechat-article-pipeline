@@ -96,6 +96,22 @@ export function heuristicIllustrations(article) {
       ]
     };
   }
+  if (/安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(text)) {
+    return {
+      placements: [
+        {
+          afterHeading: "给自己一点不被追赶的时间",
+          afterText: "通勤的时候",
+          sketch: [
+            "Pressure -> Pause -> Settle -> Return",
+            "              |",
+            "          quiet time"
+          ].join("\n"),
+          caption: "安顿不是停止成长，而是让自己重新有力气出发。"
+        }
+      ]
+    };
+  }
   if (/自由职业|进退|成长|身份|确认/.test(text)) {
     return {
       placements: [

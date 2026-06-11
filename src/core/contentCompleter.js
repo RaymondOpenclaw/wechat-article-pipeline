@@ -103,6 +103,19 @@ export function heuristicContentCompletion(input, _styleProfile = null, config =
       whyItMatters: "公众号读者在手机上阅读时，需要先理解核心立场，再进入地图和练习要点。",
       howToFill: "按“为什么分开人和问题 -> 解构/外化关系 -> 立场地图 -> 相对影响力 -> 练习提醒”的顺序组织。"
     });
+  } else if (isSettlingPaceDraft(text)) {
+    safeSupplements.push(
+      {
+        type: "结构桥梁",
+        content: "把“找不到合适工作”和“没有进步也算进展”统一到一个主题：人需要时间安顿自己，停顿不一定是失败。",
+        usage: "作为全文主轴，连接采购求职、高考进展和作者自己的工作经验。"
+      },
+      {
+        type: "读者疑问",
+        content: "读者可能会问：安顿自己会不会变成逃避？文章需要给出边界：不是无限躺平，而是留出消化和恢复的空间。",
+        usage: "放在后半部分，帮助读者把安顿变成可执行的生活安排。"
+      }
+    );
   } else if (/自由职业|职业|自媒体|成长|进退|身份/.test(text)) {
     safeSupplements.push(
       {
@@ -176,6 +189,14 @@ function buildSuggestedOutline(text, contentType) {
     ];
   }
   if (/自由职业|职业|自媒体|成长|进退|身份/.test(text)) {
+    if (isSettlingPaceDraft(text)) {
+      return [
+        { heading: "两个看起来无关的事情", purpose: "用采购求职和高考进展打开文章", keyPoints: ["找不到合适工作", "没有进步也是进展"] },
+        { heading: "停下来，可能是在安顿自己", purpose: "提炼核心洞察", keyPoints: ["不是不努力", "内心需要消化"] },
+        { heading: "这个时代最缺的是缓一缓的空间", purpose: "分析社会节奏和绩效压力", keyPoints: ["工作太卷", "不允许停滞"] },
+        { heading: "给自己留一点不被追赶的时间", purpose: "给读者可执行建议", keyPoints: ["通勤放空", "少用刷剧填满", "允许消化"] }
+      ];
+    }
     return [
       { heading: "那个孩子为什么退回第五阶", purpose: "用具体故事打开文章", keyPoints: ["进两步退三步", "不是线性成长"] },
       { heading: "退回来，也是在确认自己", purpose: "提炼核心洞察", keyPoints: ["身份确认", "自我判断"] },
@@ -200,6 +221,7 @@ function inferContentType(text, config) {
 
 function inferReaders(text) {
   if (/叙事疗法|心理咨询|来访|咨询/.test(text)) return ["心理咨询学习者", "叙事疗法练习者", "心理咨询技能培训读者"];
+  if (isSettlingPaceDraft(text)) return ["职场压力中的读者", "刚经历停顿或调整的人", "想重新安顿自己的普通人"];
   if (/自由职业|职业|自媒体/.test(text)) return ["自由职业探索者", "职业转型中的读者", "正在寻找自我定位的人"];
   return ["对主题感兴趣的公众号读者", "希望获得清晰判断和行动感的人"];
 }
@@ -209,10 +231,17 @@ function inferCoreClaim(text) {
   if (/叙事疗法|外化|解构/.test(normalized)) {
     return "外化和解构的关键，是把人与问题分开，让来访者重新看见立场、价值和选择空间。";
   }
+  if (isSettlingPaceDraft(normalized)) {
+    return "人不是机器，很多停顿和后退不是失败，而是在给自己留出消化、恢复和重新出发的时间。";
+  }
   if (/自由职业|进退|身份/.test(normalized)) {
     return "成长不一定是线性向前，进进退退也可能是在确认自己真正要走的方向。";
   }
   return firstSentence(normalized) || "把原始想法整理成读者能够理解并带走收获的完整文章。";
+}
+
+function isSettlingPaceDraft(text) {
+  return /安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(String(text || ""));
 }
 
 function normalizeGapItems(value, fallback) {
