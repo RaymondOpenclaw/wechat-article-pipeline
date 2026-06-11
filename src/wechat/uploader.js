@@ -1,5 +1,5 @@
 import path from "node:path";
-import { imagePlaceholder, replaceImagePlaceholderHtml } from "../utils/html.js";
+import { formalIllustrationPlaceholder, imagePlaceholder, replaceFormalIllustrationPlaceholderHtml, replaceImagePlaceholderHtml } from "../utils/html.js";
 import { writeJson, slugify } from "../utils/files.js";
 import { WeChatClient } from "./client.js";
 
@@ -15,8 +15,16 @@ export async function uploadProcessedArticle(processedArticle, {
   cover.mediaId = coverUpload.media_id;
 
   let content = processedArticle.html;
+  const formalIllustrations = processedArticle.images.filter((image) => image.kind === "formal-illustration");
   const inlineImages = processedArticle.images.filter((image) => image.kind === "inline");
   const imageMappings = [];
+  for (const [index, image] of formalIllustrations.entries()) {
+    const upload = await wechatClient.uploadArticleImage(image.localPath);
+    image.wechatUrl = upload.url;
+    const imgHtml = `<p style="text-align:center;"><img src="${upload.url}" alt="" style="max-width:100%;height:auto;" /></p>`;
+    content = replaceFormalIllustrationPlaceholderHtml(content, image.index || index + 1, imgHtml);
+    imageMappings.push({ placeholder: formalIllustrationPlaceholder(image.index || index + 1), localPath: image.localPath, url: upload.url });
+  }
   for (const [index, image] of inlineImages.entries()) {
     const upload = await wechatClient.uploadArticleImage(image.localPath);
     image.wechatUrl = upload.url;
@@ -24,6 +32,7 @@ export async function uploadProcessedArticle(processedArticle, {
     content = replaceImagePlaceholderHtml(content, index + 1, imgHtml);
     imageMappings.push({ placeholder: imagePlaceholder(index + 1), localPath: image.localPath, url: upload.url });
   }
+  content = content.replace(/\{\{FORMAL_ILLUSTRATION_\d+\}\}/g, "");
   content = content.replace(/\{\{INLINE_IMAGE_\d+\}\}/g, "");
 
   const articlePayload = {

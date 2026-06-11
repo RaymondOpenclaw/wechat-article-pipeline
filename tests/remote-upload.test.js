@@ -55,16 +55,19 @@ test("loadRemoteUploadConfig supports private key authentication", async () => {
 test("buildRemotePayload embeds images and WeChat article fields", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-remote-payload-"));
   const coverPath = path.join(cwd, "cover.png");
+  const formalPath = path.join(cwd, "formal.png");
   const inlinePath = path.join(cwd, "inline.png");
   await fs.writeFile(coverPath, "cover");
+  await fs.writeFile(formalPath, "formal");
   await fs.writeFile(inlinePath, "inline");
   const payload = await buildRemotePayload({
     title: "标题",
     digest: "摘要",
-    html: "<p>{{INLINE_IMAGE_1}}</p>",
+    html: "<p>{{FORMAL_ILLUSTRATION_1}}</p><p>{{INLINE_IMAGE_1}}</p>",
     input: { metadata: {} },
     images: [
       { kind: "cover", localPath: coverPath },
+      { kind: "formal-illustration", index: 1, localPath: formalPath },
       { kind: "inline", localPath: inlinePath }
     ]
   }, {
@@ -75,8 +78,9 @@ test("buildRemotePayload embeds images and WeChat article fields", async () => {
   });
   assert.equal(payload.appId, "wx-test");
   assert.equal(payload.article.title, "标题");
-  assert.equal(payload.images.length, 2);
-  assert.equal(payload.images[1].placeholder, "{{INLINE_IMAGE_1}}");
+  assert.equal(payload.images.length, 3);
+  assert.equal(payload.images[1].placeholder, "{{FORMAL_ILLUSTRATION_1}}");
+  assert.equal(payload.images[2].placeholder, "{{INLINE_IMAGE_1}}");
   assert.ok(payload.images[0].bytesBase64);
   await fs.rm(cwd, { recursive: true, force: true });
 });

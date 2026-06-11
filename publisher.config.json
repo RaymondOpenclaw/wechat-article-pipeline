@@ -24,6 +24,14 @@
     "inlineImageCount": 2,
     "defaultStyle": "cinematic WeChat editorial visual, moody dark warm tones, quiet emotional lighting, minimal realistic composition, premium magazine feeling"
   },
+  "formalIllustration": {
+    "enabled": true,
+    "requireConfirmation": true,
+    "model": "gpt-image-1",
+    "size": "1024x1024",
+    "quality": "",
+    "outputFormat": ""
+  },
   "remoteUpload": {
     "enabled": true,
     "host": "81.68.126.119",

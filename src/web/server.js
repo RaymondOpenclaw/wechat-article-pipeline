@@ -14,7 +14,7 @@ import { importStyleLibraryLinks, importStyleLibraryTexts, inspectStyleLibrary, 
 import { getPlatformArchitecture } from "../core/platformModules.js";
 import { createArticleWorkflow, listWorkflows, loadWorkflow, runWorkflowStep, runWorkflowUntil, updateWorkflowNode, workflowToProcessed } from "../core/workflowEngine.js";
 import { uploadProcessedArticleWithStrategy } from "../wechat/uploadStrategy.js";
-import { escapeHtml, replaceImagePlaceholderHtml } from "../utils/html.js";
+import { escapeHtml, replaceFormalIllustrationPlaceholderHtml, replaceImagePlaceholderHtml } from "../utils/html.js";
 import { importLocalSecretsToVault, secureSecretsStatus } from "../utils/secureVault.js";
 
 const cwd = process.cwd();
@@ -619,12 +619,20 @@ function publicArticle(processed) {
   }));
   let htmlPreview = processed.html;
   images
+    .filter((image) => image.kind === "formal-illustration")
+    .forEach((image, index) => {
+      const src = image.localPath;
+      const imgHtml = `<p style="margin:22px 0;text-align:center;"><img src="${src}" alt="${escapeHtml(image.caption || "")}" style="max-width:100%;height:auto;border-radius:8px;" /></p>`;
+      htmlPreview = replaceFormalIllustrationPlaceholderHtml(htmlPreview, image.index || index + 1, imgHtml);
+    });
+  images
     .filter((image) => image.kind === "inline")
     .forEach((image, index) => {
       const src = image.localPath;
       const imgHtml = `<p style="margin:22px 0;text-align:center;"><img src="${src}" alt="" style="max-width:100%;height:auto;border-radius:8px;" /></p>`;
       htmlPreview = replaceImagePlaceholderHtml(htmlPreview, index + 1, imgHtml);
     });
+  htmlPreview = htmlPreview.replace(/\{\{FORMAL_ILLUSTRATION_\d+\}\}/g, "");
   htmlPreview = htmlPreview.replace(/\{\{INLINE_IMAGE_\d+\}\}/g, "");
   return {
     ...processed,

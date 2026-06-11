@@ -3,7 +3,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { imagePlaceholder } from "../utils/html.js";
+import { formalIllustrationPlaceholder, imagePlaceholder } from "../utils/html.js";
 import { ensureDir, slugify, writeJson } from "../utils/files.js";
 import { readSecretConfig, resolveConfigPath } from "../utils/secretConfig.js";
 import { readSecureSecrets } from "../utils/secureVault.js";
@@ -115,10 +115,16 @@ export async function buildRemotePayload(processedArticle, config, credentials) 
   if (!cover) throw new Error("Processed article does not include a cover image");
   const images = [];
   for (const image of processedArticle.images) {
+    const inlineIndex = images.filter((item) => item.kind === "inline").length + 1;
+    const formalIndex = image.index || images.filter((item) => item.kind === "formal-illustration").length + 1;
     images.push({
       kind: image.kind,
       name: path.basename(image.localPath),
-      placeholder: image.kind === "inline" ? imagePlaceholder(images.filter((item) => item.kind === "inline").length + 1) : "",
+      placeholder: image.kind === "inline"
+        ? imagePlaceholder(inlineIndex)
+        : image.kind === "formal-illustration"
+          ? formalIllustrationPlaceholder(formalIndex)
+          : "",
       bytesBase64: (await fs.readFile(image.localPath)).toString("base64")
     });
   }
@@ -270,6 +276,15 @@ async function requestJson(url, options = {}) {
 
 function replaceImagePlaceholderHtml(html, index, replacementHtml) {
   const placeholder = "{{INLINE_IMAGE_" + index + "}}";
+  return replacePlaceholderHtml(html, placeholder, replacementHtml);
+}
+
+function replaceFormalIllustrationPlaceholderHtml(html, index, replacementHtml) {
+  const placeholder = "{{FORMAL_ILLUSTRATION_" + index + "}}";
+  return replacePlaceholderHtml(html, placeholder, replacementHtml);
+}
+
+function replacePlaceholderHtml(html, placeholder, replacementHtml) {
   const escaped = placeholder.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const paragraphPattern = new RegExp("<p\\b[^>]*>\\s*" + escaped + "\\s*<\\/p>", "g");
   return String(html).replace(paragraphPattern, replacementHtml).replaceAll(placeholder, replacementHtml);
@@ -277,16 +292,24 @@ function replaceImagePlaceholderHtml(html, index, replacementHtml) {
 
 const token = await getAccessToken();
 const cover = payload.images.find((image) => image.kind === "cover");
+const formalIllustrations = payload.images.filter((image) => image.kind === "formal-illustration");
 const inlineImages = payload.images.filter((image) => image.kind === "inline");
 const coverUpload = await uploadImage({ token, image: cover, permanent: true });
 let content = payload.article.content;
 const imageMappings = [];
+for (const [index, image] of formalIllustrations.entries()) {
+  const upload = await uploadImage({ token, image, permanent: false });
+  const imgHtml = '<p style="text-align:center;"><img src="' + upload.url + '" alt="" style="max-width:100%;height:auto;" /></p>';
+  content = replaceFormalIllustrationPlaceholderHtml(content, index + 1, imgHtml);
+  imageMappings.push({ placeholder: "{{FORMAL_ILLUSTRATION_" + (index + 1) + "}}", url: upload.url });
+}
 for (const [index, image] of inlineImages.entries()) {
   const upload = await uploadImage({ token, image, permanent: false });
   const imgHtml = '<p style="text-align:center;"><img src="' + upload.url + '" alt="" style="max-width:100%;height:auto;" /></p>';
   content = replaceImagePlaceholderHtml(content, index + 1, imgHtml);
   imageMappings.push({ placeholder: "{{INLINE_IMAGE_" + (index + 1) + "}}", url: upload.url });
 }
+content = content.replace(/\{\{FORMAL_ILLUSTRATION_\d+\}\}/g, "");
 content = content.replace(/\{\{INLINE_IMAGE_\d+\}\}/g, "");
 const articlePayload = {
   title: payload.article.title,

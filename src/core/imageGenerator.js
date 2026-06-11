@@ -43,7 +43,7 @@ async function generateOne({ kind, prompt, filePath, size, aiClient }) {
   }
 }
 
-function illustrativePng(kind, prompt) {
+export function illustrativePng(kind, prompt) {
   const width = kind === "cover" ? 900 : 1024;
   const height = kind === "cover" ? 383 : 1024;
   const canvas = createCanvas(width, height, paletteFromPrompt(prompt));

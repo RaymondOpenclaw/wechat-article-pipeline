@@ -23,6 +23,14 @@ const defaultConfig = {
     enabled: true,
     mode: "ascii-skill"
   },
+  formalIllustration: {
+    enabled: true,
+    requireConfirmation: true,
+    model: "gpt-image-1",
+    size: "1024x1024",
+    quality: "",
+    outputFormat: ""
+  },
   wechat: {
     showCoverPic: 1,
     needOpenComment: 0,
@@ -48,6 +56,7 @@ function mergeConfig(base, override) {
   result.styleEngine = { ...base.styleEngine, ...(override.styleEngine || {}) };
   result.articleTemplate = { ...base.articleTemplate, ...(override.articleTemplate || {}) };
   result.illustration = { ...base.illustration, ...(override.illustration || {}) };
+  result.formalIllustration = { ...base.formalIllustration, ...(override.formalIllustration || {}) };
   return result;
 }
 

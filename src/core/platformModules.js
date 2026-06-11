@@ -40,6 +40,14 @@ export const PLATFORM_MODULES = [
     outputs: ["editor-review artifact", "scores", "issues", "recommendedEdits"]
   },
   {
+    id: "formal_illustration_engine",
+    name: "ASCII 转 image2 正式插画",
+    level: "core",
+    responsibility: "在成稿插入 ASCII sketch 后暂停确认，再调用 image2 生成正式插画，替换回正文原位置并进入上传映射。",
+    entrypoints: ["generateFormalIllustrations()", "POST /api/workflows/run-step"],
+    outputs: ["formal illustration images", "FORMAL_ILLUSTRATION placeholders", "image prompt records"]
+  },
+  {
     id: "visual_engine",
     name: "配图 Brief 与图片生成",
     level: "core",
@@ -74,6 +82,7 @@ export function getPlatformArchitecture() {
     workflowPolicy: {
       confirmationRequiredBeforeUpload: true,
       contentCompletionRequiredBeforeTransform: true,
+      formalIllustrationConfirmationRequired: true,
       editorApprovalRequiredBeforeVisual: true,
       nodeLevelAudit: true,
       editableNodes: ["transform", "visual"],

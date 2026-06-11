@@ -39,20 +39,28 @@ export class AiClient {
     return JSON.parse(content);
   }
 
-  async image(prompt, { size = "1024x1024" } = {}) {
+  async image(prompt, {
+    size = "1024x1024",
+    model = this.imageModel,
+    quality = "",
+    outputFormat = ""
+  } = {}) {
     if (!this.enabled) return null;
+    const body = {
+      model,
+      prompt,
+      size,
+      n: 1
+    };
+    if (quality) body.quality = quality;
+    if (outputFormat) body.output_format = outputFormat;
     const response = await fetch(`${this.baseUrl}/images/generations`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: this.imageModel,
-        prompt,
-        size,
-        n: 1
-      })
+      body: JSON.stringify(body)
     });
     const payload = await readApiResponse(response);
     const item = payload.data?.[0];

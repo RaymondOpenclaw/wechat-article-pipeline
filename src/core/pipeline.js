@@ -7,10 +7,11 @@ import { loadStyleProfile } from "./styleProfile.js";
 import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
 import { applyIllustrationSkill } from "./illustrationSkill.js";
+import { generateFormalIllustrations } from "./formalIllustrationGenerator.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
 import { ensureDir, writeJson, slugify } from "../utils/files.js";
-import { replaceImagePlaceholderHtml } from "../utils/html.js";
+import { replaceFormalIllustrationPlaceholderHtml, replaceImagePlaceholderHtml } from "../utils/html.js";
 
 export async function processArticle(filePath, { cwd = process.cwd(), config = null, aiClient = new AiClient() } = {}) {
   const resolvedConfig = config || await loadConfig(cwd);
@@ -20,11 +21,23 @@ export async function processArticle(filePath, { cwd = process.cwd(), config = n
     : null;
   const contentBrief = await completeArticleInformation(input, { styleProfile, config: resolvedConfig, aiClient });
   const drafted = await transformArticle(input, { styleProfile, contentBrief, config: resolvedConfig, aiClient });
-  const transformed = await applyIllustrationSkill(drafted, { cwd, config: resolvedConfig, aiClient });
+  const illustrated = await applyIllustrationSkill(drafted, { cwd, config: resolvedConfig, aiClient });
+  const transformed = await generateFormalIllustrations(illustrated, { cwd, config: {
+    ...resolvedConfig,
+    formalIllustration: {
+      ...(resolvedConfig.formalIllustration || {}),
+      requireConfirmation: false
+    }
+  }, aiClient });
   const visualBrief = await createVisualBrief(transformed, { config: resolvedConfig, aiClient });
-  const images = resolvedConfig.image?.enabled
+  const generatedImages = resolvedConfig.image?.enabled
     ? await generateImages(visualBrief, transformed, { cwd, config: resolvedConfig, aiClient })
     : [];
+  const images = [
+    ...generatedImages.filter((image) => image.kind === "cover"),
+    ...(transformed.formalIllustrations || []),
+    ...generatedImages.filter((image) => image.kind !== "cover")
+  ];
   const processed = {
     ...transformed,
     contentBrief,
@@ -74,6 +87,12 @@ export async function saveArticleArchive(cwd, processedArticle) {
 
 async function writeArticleMarkdown(filePath, article) {
   await ensureDir(path.dirname(filePath));
+  let markdown = article.markdown;
+  (article.images || [])
+    .filter((image) => image.kind === "formal-illustration")
+    .forEach((image, index) => {
+      markdown = markdown.replaceAll(`{{FORMAL_ILLUSTRATION_${image.index || index + 1}}}`, image.localPath);
+    });
   const frontmatter = [
     "---",
     `title: ${article.title}`,
@@ -82,18 +101,25 @@ async function writeArticleMarkdown(filePath, article) {
     "---",
     ""
   ].join("\n");
-  await fs.writeFile(filePath, `${frontmatter}${article.markdown}\n`, "utf8");
+  await fs.writeFile(filePath, `${frontmatter}${markdown}\n`, "utf8");
 }
 
 async function writeArticleHtml(filePath, article) {
   await ensureDir(path.dirname(filePath));
   let content = article.html;
   (article.images || [])
+    .filter((image) => image.kind === "formal-illustration")
+    .forEach((image, index) => {
+      const imgHtml = `<p style="margin:22px 0;text-align:center;"><img src="${escapeHtml(image.localPath)}" alt="${escapeHtml(image.caption || "")}" style="max-width:100%;height:auto;border-radius:8px;" /></p>`;
+      content = replaceFormalIllustrationPlaceholderHtml(content, image.index || index + 1, imgHtml);
+    });
+  (article.images || [])
     .filter((image) => image.kind === "inline")
     .forEach((image, index) => {
       const imgHtml = `<p style="margin:22px 0;text-align:center;"><img src="${escapeHtml(image.localPath)}" alt="" style="max-width:100%;height:auto;border-radius:8px;" /></p>`;
       content = replaceImagePlaceholderHtml(content, index + 1, imgHtml);
     });
+  content = content.replace(/\{\{FORMAL_ILLUSTRATION_\d+\}\}/g, "");
   content = content.replace(/\{\{INLINE_IMAGE_\d+\}\}/g, "");
   const html = `<!doctype html>
 <html lang="zh-CN">

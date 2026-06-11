@@ -4,11 +4,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { uploadProcessedArticle } from "../src/wechat/uploader.js";
 
-test("uploadProcessedArticle uploads cover, inline images, then draft", async () => {
+test("uploadProcessedArticle uploads cover, formal illustrations, inline images, then draft", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-wechat-"));
   const coverPath = path.join(cwd, "cover.png");
+  const formalPath = path.join(cwd, "formal.png");
   const inlinePath = path.join(cwd, "inline.png");
   await fs.writeFile(coverPath, "cover");
+  await fs.writeFile(formalPath, "formal");
   await fs.writeFile(inlinePath, "inline");
   const calls = [];
   const client = {
@@ -17,8 +19,8 @@ test("uploadProcessedArticle uploads cover, inline images, then draft", async ()
       return { media_id: "cover_media" };
     },
     async uploadArticleImage(filePath) {
-      calls.push(["inline", filePath]);
-      return { url: "https://mmbiz.qpic.cn/inline.png" };
+      calls.push([filePath === formalPath ? "formal" : "inline", filePath]);
+      return { url: filePath === formalPath ? "https://mmbiz.qpic.cn/formal.png" : "https://mmbiz.qpic.cn/inline.png" };
     },
     async addDraft(article) {
       calls.push(["draft", article]);
@@ -28,10 +30,11 @@ test("uploadProcessedArticle uploads cover, inline images, then draft", async ()
   const result = await uploadProcessedArticle({
     title: "标题",
     digest: "摘要",
-    html: "<section><p>{{INLINE_IMAGE_1}}</p></section>",
+    html: "<section><p>{{FORMAL_ILLUSTRATION_1}}</p><p>{{INLINE_IMAGE_1}}</p></section>",
     input: { metadata: {} },
     images: [
       { kind: "cover", localPath: coverPath, prompt: "cover" },
+      { kind: "formal-illustration", index: 1, localPath: formalPath, prompt: "formal" },
       { kind: "inline", localPath: inlinePath, prompt: "inline" }
     ]
   }, {
@@ -40,8 +43,11 @@ test("uploadProcessedArticle uploads cover, inline images, then draft", async ()
     wechatClient: client
   });
   assert.equal(result.mediaId, "draft_media");
-  assert.deepEqual(calls.map((call) => call[0]), ["cover", "inline", "draft"]);
-  assert.match(calls[2][1].content, /mmbiz\.qpic\.cn/);
-  assert.doesNotMatch(calls[2][1].content, /<p><p/);
+  assert.deepEqual(calls.map((call) => call[0]), ["cover", "formal", "inline", "draft"]);
+  assert.match(calls[3][1].content, /formal\.png/);
+  assert.match(calls[3][1].content, /inline\.png/);
+  assert.doesNotMatch(calls[3][1].content, /\{\{FORMAL_ILLUSTRATION_1\}\}/);
+  assert.doesNotMatch(calls[3][1].content, /\{\{INLINE_IMAGE_1\}\}/);
+  assert.doesNotMatch(calls[3][1].content, /<p><p/);
   await fs.rm(cwd, { recursive: true, force: true });
 });

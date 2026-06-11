@@ -18,6 +18,8 @@ test("article workflow runs node by node to archive", async () => {
     config: {
       profileName: "default",
       useHistoryStyle: false,
+      illustration: { enabled: false },
+      formalIllustration: { requireConfirmation: false },
       image: { enabled: true, inlineImageCount: 1 }
     }
   });
@@ -30,6 +32,7 @@ test("article workflow runs node by node to archive", async () => {
   assert.equal(updated.data.images.length, 2);
   assert.ok(updated.data.archive.dirPath.includes("data/articles"));
   assert.equal(updated.steps.find((step) => step.id === "content_completion").status, "done");
+  assert.equal(updated.steps.find((step) => step.id === "formal_illustrations").status, "done");
   assert.equal(updated.steps.find((step) => step.id === "editor_review").status, "done");
   assert.equal(updated.steps.find((step) => step.id === "archive").status, "done");
   assert.equal(updated.steps.find((step) => step.id === "content_completion").artifacts.at(-1).type, "content-brief");
@@ -53,6 +56,8 @@ test("updating article node resets later workflow nodes", async () => {
     config: {
       profileName: "default",
       useHistoryStyle: false,
+      illustration: { enabled: false },
+      formalIllustration: { requireConfirmation: false },
       image: { enabled: false, inlineImageCount: 0 }
     }
   });
@@ -64,6 +69,7 @@ test("updating article node resets later workflow nodes", async () => {
     patch: { title: "手动修改标题" }
   });
   assert.equal(patched.data.transformed.title, "手动修改标题");
+  assert.equal(patched.steps.find((step) => step.id === "formal_illustrations").status, "pending");
   assert.equal(patched.steps.find((step) => step.id === "editor_review").status, "pending");
   assert.equal(patched.steps.find((step) => step.id === "visual").status, "pending");
   assert.equal(patched.steps.find((step) => step.id === "archive").status, "pending");
@@ -86,6 +92,7 @@ test("editor review blocks later nodes when article misses the source viewpoint"
     config: {
       profileName: "default",
       useHistoryStyle: false,
+      formalIllustration: { requireConfirmation: false },
       image: { enabled: false, inlineImageCount: 0 }
     }
   });
@@ -111,5 +118,31 @@ test("editor review blocks later nodes when article misses the source viewpoint"
   assert.equal(reviewed.steps.find((step) => step.id === "visual").status, "pending");
   assert.equal(reviewed.steps.find((step) => step.id === "archive").status, "pending");
   assert.equal(reviewed.data.archive, undefined);
+  await fs.rm(cwd, { recursive: true, force: true });
+});
+
+test("workflow pauses after ASCII sketches so formal image2 illustrations can be confirmed", async () => {
+  const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-workflow-formal-confirm-"));
+  const workflow = await createArticleWorkflow({
+    cwd,
+    fileName: "narrative.md",
+    text: "叙事疗法外化需要把人和问题分开。立场地图帮助来访者理解问题影响和自己的价值。",
+    config: {
+      profileName: "default",
+      useHistoryStyle: false,
+      illustration: { enabled: true },
+      formalIllustration: { enabled: true, requireConfirmation: true },
+      image: { enabled: false, inlineImageCount: 0 }
+    }
+  });
+  const paused = await runWorkflowUntil({ cwd, workflowId: workflow.id, untilStepId: "archive", aiClient });
+  assert.equal(paused.steps.find((step) => step.id === "transform").status, "done");
+  assert.equal(paused.steps.find((step) => step.id === "formal_illustrations").status, "pending");
+  assert.ok(paused.data.transformed.asciiIllustrations.length >= 1);
+
+  const continued = await runWorkflowStep({ cwd, workflowId: workflow.id, stepId: "formal_illustrations", aiClient });
+  assert.equal(continued.steps.find((step) => step.id === "formal_illustrations").status, "done");
+  assert.equal(continued.data.formalIllustrations.length, paused.data.transformed.asciiIllustrations.length);
+  assert.match(continued.data.transformed.html, /\{\{FORMAL_ILLUSTRATION_1\}\}/);
   await fs.rm(cwd, { recursive: true, force: true });
 });

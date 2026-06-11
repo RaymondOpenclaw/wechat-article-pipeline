@@ -6,6 +6,7 @@ import { loadConfig } from "./config.js";
 import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
 import { applyIllustrationSkill } from "./illustrationSkill.js";
+import { generateFormalIllustrations } from "./formalIllustrationGenerator.js";
 import { reviewArticleDraft } from "./editorReview.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
@@ -19,6 +20,7 @@ export const WORKFLOW_STEPS = [
   { id: "style", name: "读取风格库", description: "加载个人写作风格和标准化提示词。", editable: false },
   { id: "content_completion", name: "内容完整度补全", description: "补齐背景、概念、逻辑桥梁和读者疑问，形成成稿 Brief。", editable: false },
   { id: "transform", name: "文章成稿", description: "专家组打磨，生成公众号文章和手机 HTML。", editable: true },
+  { id: "formal_illustrations", name: "ASCII 转正式插画", description: "确认 ASCII 草图后，用 image2 生成正式插画并放回正文原位置。", editable: false },
   { id: "editor_review", name: "文章编辑审稿", description: "检查文章是否读懂原文、逻辑通顺、观点正确。", editable: false },
   { id: "visual", name: "配图 Brief", description: "基于文章结构生成封面与正文图提示词。", editable: true },
   { id: "images", name: "生成配图", description: "生成封面和正文插图。", editable: false },
@@ -71,6 +73,7 @@ export async function createArticleWorkflow({
 export async function loadWorkflow(cwd, workflowId) {
   const workflow = await readJson(workflowPath(cwd, workflowId), null);
   if (!workflow) throw new Error(`Workflow not found: ${workflowId}`);
+  if (normalizeWorkflowSteps(workflow)) await saveWorkflow(cwd, workflow);
   return workflow;
 }
 
@@ -132,6 +135,7 @@ export async function runWorkflowUntil({
   while (nextPendingStep(workflow)) {
     const next = nextPendingStep(workflow);
     workflow = await runWorkflowStep({ cwd, workflowId, stepId: next, aiClient });
+    if (next === "transform" && shouldPauseForFormalIllustrationConfirmation(workflow)) break;
     if (next === "editor_review" && workflow.data.editorReview?.approved === false) break;
     if (next === untilStepId || workflow.status === "failed") break;
   }
@@ -151,13 +155,14 @@ export async function updateWorkflowNode({
       ...pick(patch, ["title", "digest", "markdown", "html"])
     };
     delete workflow.data.editorReview;
+    delete workflow.data.formalIllustrations;
     delete workflow.data.visualBrief;
     delete workflow.data.images;
     delete workflow.data.taskPath;
     delete workflow.data.archive;
     delete workflow.data.uploadResult;
-    resetFrom(workflow, "editor_review");
-    addLog(workflow, "transform", "已手动修改文章节点，后续审稿/配图/归档/上传节点需要重新执行。");
+    resetFrom(workflow, "formal_illustrations");
+    addLog(workflow, "transform", "已手动修改文章节点，后续正式插画/审稿/配图/归档/上传节点需要重新执行。");
   } else if (node === "visual") {
     workflow.data.visualBrief = patch;
     resetFrom(workflow, "images");
@@ -174,9 +179,10 @@ export function workflowToProcessed(workflow) {
   return {
     ...workflow.data.transformed,
     contentBrief: workflow.data.contentBrief || workflow.data.transformed.contentBrief || null,
+    formalIllustrations: workflow.data.formalIllustrations || workflow.data.transformed.formalIllustrations || [],
     editorReview: workflow.data.editorReview || null,
     visualBrief: workflow.data.visualBrief || null,
-    images: workflow.data.images || [],
+    images: workflow.data.images || workflow.data.formalIllustrations || workflow.data.transformed.formalIllustrations || [],
     taskPath: workflow.data.taskPath || "",
     archive: workflow.data.archive || null,
     uploadResult: workflow.data.uploadResult || null
@@ -245,6 +251,24 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
     });
     return;
   }
+  if (stepId === "formal_illustrations") {
+    assertData(workflow, "transformed", "请先执行文章成稿节点。");
+    workflow.data.transformed = await generateFormalIllustrations(workflow.data.transformed, {
+      cwd,
+      config: workflow.config,
+      aiClient
+    });
+    workflow.data.formalIllustrations = workflow.data.transformed.formalIllustrations || [];
+    addLog(workflow, stepId, `正式插画处理完成：${workflow.data.formalIllustrations.length} 张。`);
+    recordArtifact(workflow, stepId, {
+      type: "formal-illustrations",
+      label: "image2 正式插画",
+      count: workflow.data.formalIllustrations.length,
+      paths: workflow.data.formalIllustrations.map((image) => image.localPath),
+      generators: [...new Set(workflow.data.formalIllustrations.map((image) => image.generator))]
+    });
+    return;
+  }
   if (stepId === "visual") {
     if (workflow.steps.find((step) => step.id === "editor_review")?.status !== "done") {
       throw new Error("请先执行文章编辑审稿节点。");
@@ -286,9 +310,14 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
   }
   if (stepId === "images") {
     assertData(workflow, "visualBrief", "请先执行配图 Brief 节点。");
-    workflow.data.images = workflow.config.image?.enabled
+    const generatedImages = workflow.config.image?.enabled
       ? await generateImages(workflow.data.visualBrief, workflow.data.transformed, { cwd, config: workflow.config, aiClient })
       : [];
+    workflow.data.images = [
+      ...generatedImages.filter((image) => image.kind === "cover"),
+      ...(workflow.data.formalIllustrations || workflow.data.transformed.formalIllustrations || []),
+      ...generatedImages.filter((image) => image.kind !== "cover")
+    ];
     addLog(workflow, stepId, `生成图片 ${workflow.data.images.length} 张。`);
     recordArtifact(workflow, stepId, {
       type: "images",
@@ -338,6 +367,14 @@ function nextPendingStep(workflow) {
   return workflow.steps.find((step) => step.status === "pending" || step.status === "failed")?.id || "";
 }
 
+function shouldPauseForFormalIllustrationConfirmation(workflow) {
+  if (workflow.config.formalIllustration?.requireConfirmation === false) return false;
+  if (workflow.config.formalIllustration?.enabled === false) return false;
+  if (!workflow.data.transformed?.asciiIllustrations?.length) return false;
+  const formalStep = workflow.steps.find((step) => step.id === "formal_illustrations");
+  return formalStep?.status === "pending";
+}
+
 function resetFrom(workflow, stepId) {
   const start = workflow.steps.findIndex((step) => step.id === stepId);
   if (start < 0) return;
@@ -381,6 +418,22 @@ function summarizeWorkflow(workflow) {
     createdAt: workflow.createdAt,
     updatedAt: workflow.updatedAt
   };
+}
+
+function normalizeWorkflowSteps(workflow) {
+  let changed = false;
+  const byId = new Map((workflow.steps || []).map((step) => [step.id, step]));
+  workflow.steps = WORKFLOW_STEPS.map((definition) => {
+    const existing = byId.get(definition.id);
+    if (!existing) changed = true;
+    return existing
+      ? { ...definition, ...existing, name: definition.name, description: definition.description, editable: definition.editable }
+      : { ...definition, status: "pending", startedAt: "", finishedAt: "", logs: [], artifacts: [] };
+  });
+  if (changed && !workflow.steps.some((step) => step.id === workflow.currentStep)) {
+    workflow.currentStep = nextPendingStep(workflow);
+  }
+  return changed;
 }
 
 function assertData(workflow, key, message) {

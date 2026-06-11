@@ -41,8 +41,19 @@ export function imagePlaceholder(index) {
   return `{{INLINE_IMAGE_${index}}}`;
 }
 
+export function formalIllustrationPlaceholder(index) {
+  return `{{FORMAL_ILLUSTRATION_${index}}}`;
+}
+
 export function replaceImagePlaceholderHtml(html, index, replacementHtml) {
-  const placeholder = imagePlaceholder(index);
+  return replacePlaceholderHtml(html, imagePlaceholder(index), replacementHtml);
+}
+
+export function replaceFormalIllustrationPlaceholderHtml(html, index, replacementHtml) {
+  return replacePlaceholderHtml(html, formalIllustrationPlaceholder(index), replacementHtml);
+}
+
+export function replacePlaceholderHtml(html, placeholder, replacementHtml) {
   const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const paragraphPattern = new RegExp(`<p\\b[^>]*>\\s*${escaped}\\s*<\\/p>`, "g");
   return String(html).replace(paragraphPattern, replacementHtml).replaceAll(placeholder, replacementHtml);
