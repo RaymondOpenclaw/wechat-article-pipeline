@@ -5,6 +5,7 @@ import { readArticle } from "./articleReader.js";
 import { loadConfig } from "./config.js";
 import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
+import { applyIllustrationSkill } from "./illustrationSkill.js";
 import { reviewArticleDraft } from "./editorReview.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
@@ -225,18 +226,20 @@ async function executeStep({ cwd, workflow, stepId, aiClient }) {
   if (stepId === "transform") {
     const input = workflow.data.input || await readArticle(workflow.inputPath);
     workflow.data.input = input;
-    workflow.data.transformed = await transformArticle(input, {
+    const drafted = await transformArticle(input, {
       styleProfile: workflow.data.styleProfile || null,
       contentBrief: workflow.data.contentBrief || null,
       config: workflow.config,
       aiClient
     });
+    workflow.data.transformed = await applyIllustrationSkill(drafted, { cwd, config: workflow.config, aiClient });
     addLog(workflow, stepId, `生成标题：${workflow.data.transformed.title}`);
     recordArtifact(workflow, stepId, {
       type: "article",
       label: "公众号成稿",
       title: workflow.data.transformed.title,
       digest: workflow.data.transformed.digest,
+      asciiIllustrations: workflow.data.transformed.asciiIllustrations?.length || 0,
       template: getArticleTemplateForText(workflow.data.input?.rawText || "", workflow.config).name,
       editable: true
     });

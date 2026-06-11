@@ -64,6 +64,14 @@
  */
 
 /**
+ * @typedef {Object} AsciiIllustration
+ * @property {string} afterHeading
+ * @property {string} afterText
+ * @property {string} sketch
+ * @property {string} caption
+ */
+
+/**
  * @typedef {Object} GeneratedImage
  * @property {"cover"|"inline"} kind
  * @property {string} prompt
@@ -87,6 +95,7 @@
  * @property {string} markdown
  * @property {string[]} changeLog
  * @property {string[]} riskNotes
+ * @property {AsciiIllustration[]=} asciiIllustrations
  * @property {GeneratedImage[]} images
  * @property {string} createdAt
  */

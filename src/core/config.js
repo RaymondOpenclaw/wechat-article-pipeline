@@ -19,6 +19,10 @@ const defaultConfig = {
     inlineImageCount: 2,
     defaultStyle: "cinematic WeChat editorial visual, moody dark warm tones, quiet emotional lighting, minimal realistic composition, premium magazine feeling"
   },
+  illustration: {
+    enabled: true,
+    mode: "ascii-skill"
+  },
   wechat: {
     showCoverPic: 1,
     needOpenComment: 0,
@@ -43,6 +47,7 @@ function mergeConfig(base, override) {
   result.wechat = { ...base.wechat, ...(override.wechat || {}) };
   result.styleEngine = { ...base.styleEngine, ...(override.styleEngine || {}) };
   result.articleTemplate = { ...base.articleTemplate, ...(override.articleTemplate || {}) };
+  result.illustration = { ...base.illustration, ...(override.illustration || {}) };
   return result;
 }
 

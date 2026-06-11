@@ -6,6 +6,7 @@ import { AiClient } from "./aiClient.js";
 import { loadStyleProfile } from "./styleProfile.js";
 import { completeArticleInformation } from "./contentCompleter.js";
 import { transformArticle } from "./articleTransformer.js";
+import { applyIllustrationSkill } from "./illustrationSkill.js";
 import { createVisualBrief } from "./visualBrief.js";
 import { generateImages } from "./imageGenerator.js";
 import { ensureDir, writeJson, slugify } from "../utils/files.js";
@@ -18,7 +19,8 @@ export async function processArticle(filePath, { cwd = process.cwd(), config = n
     ? await loadStyleProfile(cwd, resolvedConfig.profileName)
     : null;
   const contentBrief = await completeArticleInformation(input, { styleProfile, config: resolvedConfig, aiClient });
-  const transformed = await transformArticle(input, { styleProfile, contentBrief, config: resolvedConfig, aiClient });
+  const drafted = await transformArticle(input, { styleProfile, contentBrief, config: resolvedConfig, aiClient });
+  const transformed = await applyIllustrationSkill(drafted, { cwd, config: resolvedConfig, aiClient });
   const visualBrief = await createVisualBrief(transformed, { config: resolvedConfig, aiClient });
   const images = resolvedConfig.image?.enabled
     ? await generateImages(visualBrief, transformed, { cwd, config: resolvedConfig, aiClient })

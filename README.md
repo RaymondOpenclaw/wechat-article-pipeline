@@ -9,6 +9,7 @@
 - 个人风格库：从公众号历史文章链接抽取标题结构、开头方式、段落节奏、高频表达、论证方式和视觉气质。
 - 长期风格沉淀：历史文章会追加保存到 `profiles/default/raw-history.json`，粘贴的文章会落到 `profiles/default/inbox/`。
 - 配图生成：生成 1 张封面图和 1-3 张正文插图；未配置图片模型时生成本地 PNG 占位图用于预览。
+- 正文 ASCII 插画：成稿后使用 `skill/illustration` 在合适段落插入紧凑 ASCII sketch，帮助读者理解结构、关系和步骤。
 - Agnes 图片生成：优先调用 `skill/agnes-image-gen` 的 Agnes AI 图片模型；不可用时回退本地插画。
 - Get笔记内容来源：可把 Get笔记凭据保存到项目密文库，后续从笔记搜索、详情和素材包进入文章工作流，不依赖 OpenClaw 运行时。
 - 草稿上传：官方 API 获取 `access_token`，上传封面永久素材、正文图片，并创建草稿箱草稿。
