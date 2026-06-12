@@ -32,3 +32,23 @@ test("editor review rejects articles that replace externalization with generic g
   assert.match(review.recommendedEdits.title, /外化/);
   assert.match(review.recommendedEdits.quote, /外化/);
 });
+
+test("group process article does not receive narrative externalization edits", async () => {
+  const review = await reviewArticleDraft({
+    rawText: "无结构团体会让真实关系模式浮现，成员在反馈中获得矫正性情绪体验。团体带领者需要先作为参与者体验团体。",
+    metadata: {}
+  }, {
+    title: "为什么学了很多，还是用不出来？团体工作的真正价值",
+    digest: "团体通过真实关系互动，帮助人看见阻碍知识与技能发挥的自我模式。",
+    markdown: "> 团体不急着教你更多，而是让你看见真实关系里的自己。\n\n## 团体如何工作\n\n成员在反馈中尝试新的选择。",
+    expertReviews: {
+      valueMentor: {
+        goldenLines: ["团体不急着教你更多，而是让你看见真实关系里的自己。"]
+      }
+    }
+  }, { aiClient });
+
+  assert.equal(review.approved, true);
+  assert.equal(review.recommendedEdits.title, "为什么学了很多，还是用不出来？团体工作的真正价值");
+  assert.doesNotMatch(review.recommendedEdits.quote, /外化/);
+});

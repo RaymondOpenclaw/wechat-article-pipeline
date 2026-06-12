@@ -96,6 +96,26 @@ test("transformArticle understands externalization concept drafts", async () => 
   assert.doesNotMatch(article.markdown, /真正的成长，可能不是一直往前/);
 });
 
+test("transformArticle builds a dedicated group process article", async () => {
+  const article = await transformArticle({
+    rawText: [
+      "团体和课程不同，它在才干和自我层面工作。",
+      "无结构团体是真实社会的缩影，问题会在关系中产生，也会在关系互动中解决。",
+      "成员通过此时此地的反馈看见自己的模式，并获得矫正性情绪体验。"
+    ].join("\n\n"),
+    metadata: {}
+  }, {
+    config: { articleTemplate: { selectedId: "auto" }, image: { inlineImageCount: 2 } },
+    aiClient: { json: async (_system, _user, fallback) => fallback() }
+  });
+
+  assert.equal(article.title, "为什么学了很多，还是用不出来？团体工作的真正价值");
+  assert.match(article.markdown, /自我素养/);
+  assert.match(article.markdown, /矫正性情绪体验/);
+  assert.match(article.html, /INLINE_IMAGE_1/);
+  assert.doesNotMatch(article.markdown, /第五阶|自由职业/);
+});
+
 test("createVisualBrief creates cover and inline prompts", async () => {
   const article = {
     title: "文章标题",

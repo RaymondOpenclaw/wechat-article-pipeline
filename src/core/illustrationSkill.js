@@ -96,6 +96,22 @@ export function heuristicIllustrations(article) {
       ]
     };
   }
+  if (/无结构的?团体/.test(text) && /矫正性情绪体验|关系中产生/.test(text)) {
+    return {
+      placements: [
+        {
+          afterHeading: "没有议程的团体，究竟如何工作",
+          afterText: "真实的关系模式",
+          sketch: [
+            "Pattern -> Group -> Feedback -> New choice",
+            "             |",
+            "        safe relation"
+          ].join("\n"),
+          caption: "团体让旧的关系模式在安全互动中被看见，并有机会尝试新的选择。"
+        }
+      ]
+    };
+  }
   if (/安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(text)) {
     return {
       placements: [

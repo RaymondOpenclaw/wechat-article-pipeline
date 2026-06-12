@@ -24,3 +24,14 @@ test("content completer builds a pre-writing brief for narrative therapy drafts"
   assert.ok(brief.suggestedOutline.some((item) => /立场地图|问题/.test(`${item.heading}${item.keyPoints.join("")}`)));
   assert.match(brief.completionPrompt, /safeSupplements|补全/);
 });
+
+test("content completer recognizes group process drafts", async () => {
+  const brief = await completeArticleInformation({
+    rawText: "无结构团体是真实社会的缩影。问题会在关系中产生，也会在关系互动中解决，成员由此获得矫正性情绪体验。",
+    metadata: {}
+  }, { aiClient });
+
+  assert.match(brief.coreClaim, /团体|关系互动/);
+  assert.ok(brief.intendedReaders.some((reader) => /助人|咨询/.test(reader)));
+  assert.ok(brief.suggestedOutline.some((item) => /无结构团体/.test(item.heading)));
+});

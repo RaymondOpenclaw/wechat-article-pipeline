@@ -111,6 +111,9 @@ function normalizeBlueprint(blueprint, input, digest = "") {
 }
 
 function heuristicTransform(input, styleProfile, config, contentBrief = null) {
+  const groupProcess = buildGroupProcessArticle(input, config);
+  if (groupProcess) return attachContentBrief(groupProcess, contentBrief);
+
   const therapyCourse = buildNarrativeTherapyCourseArticle(input, config);
   if (therapyCourse) return attachContentBrief(therapyCourse, contentBrief);
 
@@ -171,6 +174,132 @@ function heuristicTransform(input, styleProfile, config, contentBrief = null) {
       "根据个人风格库约束表达习惯，并完成微信移动端排版"
     ],
     riskNotes: []
+  };
+}
+
+function buildGroupProcessArticle(input, config) {
+  const text = String(input.rawText || "");
+  if (!isGroupProcessDraft(text)) return null;
+
+  const title = "为什么学了很多，还是用不出来？团体工作的真正价值";
+  const digest = "课程和工作坊主要帮助我们增加知识与技能；团体则通过真实关系互动，让人看见并松动那些阻碍能力发挥的自我模式。它不急着教你更多，而是帮助你理解：为什么已经学会的东西，到了真实关系里仍然用不出来。";
+  const quote = "问题会在关系中产生，也会在关系中再现，并有机会在新的关系互动中被解决。";
+  const sections = [
+    {
+      heading: "为什么学了很多，还是用不出来",
+      role: "区分课程与团体",
+      body: [
+        "从优势心理学的角度看，能力包含三个部分：知识、技能和才干。",
+        "知识是我们知道什么，技能是我们会做什么；才干则更接近一个人稳定的思维、感受和行为模式。课程、工作坊和沙龙，通常主要在知识与技能层面工作。团体触及的，是才干与自我层面。",
+        "这也解释了一个常见困惑：课上了不少，书读了很多，真正进入工作和生活时，那些学来的东西却还是用不出来。问题可能不在知识不够，而在底层的自我模式仍然卡在那里。"
+      ].join("\n\n")
+    },
+    {
+      heading: "助人者最容易忽略的第三种能力",
+      role: "说明自我素养",
+      body: [
+        "杜老师把一名专业助人者需要的能力分成三类：专业技能、商业技能和自我素养。",
+        "专业技能决定你会不会咨询、教练和引导；商业技能决定你能不能传播自己、获得客户并形成可持续的收入；自我素养则决定你能不能真正和客户在一起，保持真诚、开放和不评判。",
+        "前两种能力有很多课程可以学，第三种能力却很少有地方可以练。你不敢收费，未必是不懂报价，也可能是在关系里不敢提出自己的需要；你越做越累，未必是能力不足，也可能是在关系里习惯了过度负责。",
+        "这些模式不是再学一个技巧就会消失。它们需要在关系中被看见、被松动，并被重新选择。"
+      ].join("\n\n")
+    },
+    {
+      heading: "没有议程的团体，究竟如何工作",
+      role: "解释无结构团体机制",
+      body: [
+        "无结构团体没有预设主题，也没有固定流程。恰恰因为没有人告诉你应该说什么、应该怎么表现，真实的关系模式才会逐渐浮现。",
+        "什么时候你会沉默？什么时候你忍不住要说话？什么时候你感到焦虑，什么时候你想离开？这些反应通常不是只在团体里发生，它们也是我们在日常关系中反复运行的模式。",
+        "不同的是，团体里有八九位成员，可以在此时此地给你真实反馈。他们会告诉你：当你这样表达或保持沉默时，他们感受到了什么。反馈不是评判，而是一面过去很难获得的镜子。",
+        "当旧模式被看见以后，一个人还能在安全、被支持和被倾听的环境里尝试新的表达与选择。这就是所谓的矫正性情绪体验，也是团体真正有力量的地方。"
+      ].join("\n\n")
+    },
+    {
+      heading: "带着收费、客户和变现问题来，有用吗",
+      role: "回应具体问题",
+      body: [
+        "可以带着非常具体的问题进入团体。但团体不会只停留在给你一个解决方案。",
+        "比如不敢高收费，你是真的不知道应该怎么报价，还是害怕客户评价、害怕被拒绝？没有客户，是传播方法不足，还是你在关系中不敢被看见、不敢明确表达自己的价值？",
+        "杜老师的判断是：并不是问题本身卡住了我们，而是我们与问题互动的方式卡住了我们。团体借由多双眼睛，帮助你看见自己如何面对问题、关系和评价，找到真正被卡住的位置。"
+      ].join("\n\n")
+    },
+    {
+      heading: "谁适合参加，谁需要再等等",
+      role: "明确人群与边界",
+      body: [
+        "第一类，是已经在做咨询、教练等助人工作的人。团体能帮助你在自我层面继续工作，让专业实践更中立、稳定和有力量。",
+        "第二类，是在家庭、职场或其他关系中反复遭遇困扰的人。只要问题与人际互动有关，团体都可能提供一个高密度的观察与练习空间。",
+        "第三类，是未来想带领团体的人。只有先作为参与者经历团体过程，才可能真正理解团体如何发挥作用。",
+        "同时也要尊重参与边界：半年内经历亲人离世等重大创伤事件的人，暂不建议参加；如果当前只想学习新知识、获得成长感，却不愿意开放和面对自己，团体也可能不是此刻最合适的方式。"
+      ].join("\n\n")
+    }
+  ];
+  const expertReviews = {
+    chiefEditor: {
+      summary: "文章以课程与团体的差异打开，再解释助人者自我素养、无结构团体机制、具体问题和参与边界，逻辑完整。",
+      suggestions: ["保留杜老师的核心判断", "避免把团体宣传成万能方法", "明确不适合参加的安全边界"]
+    },
+    valueMentor: {
+      highlights: ["团体在才干和自我层面工作", "反馈不是评判，而是帮助人看见自动模式的礼物"],
+      goldenLines: [quote, "团体不急着教你更多，而是让你看见：为什么已经学会的东西，在真实关系里仍然用不出来。"]
+    },
+    structureMaster: {
+      background: "很多助人者拥有知识与技能，却仍在收费、关系、耗竭和自我评价上反复卡住。",
+      tensionOrConclusion: "真正限制能力发挥的，常常不是问题本身，而是人与问题、他人与自我的互动方式。",
+      actionItems: ["判断自己的困难属于知识技能还是自我模式", "观察自己在人际互动中的自动反应", "在安全关系中尝试一种新的表达或选择"]
+    }
+  };
+  const closing = "团体不是再给我们增加一套知识，而是让那些已经学会的知识和技能，终于有机会穿过真实的自我，在关系中发挥作用。如果你也在助人工作、人际关系或自我成长中反复卡住，也许可以先问自己：我缺的真的是方法，还是一个能让我看见自己的关系空间？";
+  const markdown = [
+    `# ${title}`,
+    "",
+    "课上了不少，书读了很多，真正面对客户、工作和关系时，我们却还是会卡住。",
+    "",
+    "这往往不是因为学得不够，而是那些知识和技能，还没有穿过我们的自我模式。",
+    "",
+    digest,
+    "",
+    `> ${quote}`,
+    "",
+    ...sections.flatMap((section) => [`## ${section.heading}`, "", section.body]),
+    "",
+    closing
+  ].join("\n\n");
+  const html = renderProfessionalWechatHtml({
+    title,
+    digest,
+    sections,
+    expertReviews,
+    openingParagraphs: [
+      "课上了不少，书读了很多，真正面对客户、工作和关系时，我们却还是会卡住。",
+      "这往往不是因为学得不够，而是那些知识和技能，还没有穿过我们的自我模式。"
+    ],
+    closingLead: "访谈最后，杜老师把团体的价值收束成一句话：",
+    closingClaim: quote,
+    closingPrompt: closing,
+    inlineCount: config.image?.inlineImageCount ?? 2
+  });
+  return {
+    input,
+    blueprint: {
+      coreClaim: "团体通过真实关系互动，帮助人看见并松动阻碍知识和技能发挥的自我模式。",
+      audience: "心理咨询师、教练、助人者、有人际困扰或希望学习团体带领的人",
+      articleType: "知识访谈精讲",
+      titleCandidates: [title, "团体不是一门课：它真正改变的是关系中的你", "为什么懂了很多道理，还是过不好真实关系", "助人者真正的基本功，不只是咨询技术", "无结构团体，如何让一个人真正看见自己"],
+      digest,
+      sections: sections.map((section) => ({ heading: section.heading, role: section.role, summary: firstSentence(section.body).slice(0, 80) })),
+      closingPrompt: closing,
+      shareReason: "文章清楚解释团体与课程的区别、工作机制和参与边界，适合助人行业读者收藏转发。"
+    },
+    styleProfile: null,
+    expertReviews,
+    title,
+    digest,
+    markdown,
+    html,
+    changeLog: ["保留访谈核心观点，重组为适合手机阅读的公众号结构", "强化课程与团体的关键区别", "补充金句、读者问题和参与边界", "未新增原文之外的案例与事实"],
+    riskNotes: ["文中关于适合与暂不适合参加团体的判断来自原访谈内容，正式发布前建议由杜老师再次确认表述。"],
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -1099,6 +1228,13 @@ function compactSubject(value) {
 
 function isSettlingPaceDraft(text) {
   return /安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(String(text || ""));
+}
+
+function isGroupProcessDraft(text) {
+  const value = String(text || "");
+  return /无结构的?团体/.test(value)
+    && /矫正性情绪体验/.test(value)
+    && /问题.*关系中产生/.test(value);
 }
 
 function trimSentence(value) {

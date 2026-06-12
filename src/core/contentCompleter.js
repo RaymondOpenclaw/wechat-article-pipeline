@@ -79,7 +79,20 @@ export function heuristicContentCompletion(input, _styleProfile = null, config =
     needsUserInput.push("如果有具体事件、课程来源或观察对象，可以补充 1-2 个真实细节增强可信度。");
   }
 
-  if (/叙事疗法|外化|解构|立场地图|怀特/.test(text)) {
+  if (isGroupProcessDraft(text)) {
+    safeSupplements.push(
+      {
+        type: "结构桥梁",
+        content: "把全文统一到一个核心区分：课程主要增加知识与技能，团体则通过真实关系互动触及才干、自我和自动化关系模式。",
+        usage: "作为开头与各节之间的主轴，避免文章变成团体功能清单。"
+      },
+      {
+        type: "读者疑问",
+        content: "读者最关心的是团体如何工作、能否解决具体问题、适合谁以及哪些人暂不适合。",
+        usage: "按原文六个问题递进回答，并保留创伤经历等参与边界。"
+      }
+    );
+  } else if (/叙事疗法|外化|解构|立场地图|怀特/.test(text)) {
     safeSupplements.push(
       {
         type: "概念澄清",
@@ -179,6 +192,15 @@ function normalizeContentCompletion(result, fallback) {
 }
 
 function buildSuggestedOutline(text, contentType) {
+  if (isGroupProcessDraft(text)) {
+    return [
+      { heading: "为什么学了很多，还是用不出来", purpose: "用读者痛点引出团体与课程的区别", keyPoints: ["知识、技能、才干", "自我层面的卡点"] },
+      { heading: "助人者最容易忽略的第三种能力", purpose: "说明自我素养的重要性", keyPoints: ["专业技能", "商业技能", "自我素养"] },
+      { heading: "无结构团体如何让真实模式浮现", purpose: "解释团体工作机制", keyPoints: ["真实社会缩影", "此时此地反馈", "矫正性情绪体验"] },
+      { heading: "具体问题如何在团体里被突破", purpose: "回应收费、客户和变现等问题", keyPoints: ["问题互动方式", "关系反馈", "重新选择"] },
+      { heading: "谁适合参加，谁暂时不适合", purpose: "明确参与对象和安全边界", keyPoints: ["三类适合人群", "重大创伤", "开放意愿"] }
+    ];
+  }
   if (/叙事疗法|外化|解构|立场地图|怀特/.test(text)) {
     return [
       { heading: "先把“人”和“问题”分开", purpose: "建立外化的核心立场", keyPoints: ["人不是问题", "外化降低标签对身份的黏连"] },
@@ -220,6 +242,7 @@ function inferContentType(text, config) {
 }
 
 function inferReaders(text) {
+  if (isGroupProcessDraft(text)) return ["心理咨询师与教练", "助人行业从业者", "有人际困扰或想学习团体带领的人"];
   if (/叙事疗法|心理咨询|来访|咨询/.test(text)) return ["心理咨询学习者", "叙事疗法练习者", "心理咨询技能培训读者"];
   if (isSettlingPaceDraft(text)) return ["职场压力中的读者", "刚经历停顿或调整的人", "想重新安顿自己的普通人"];
   if (/自由职业|职业|自媒体/.test(text)) return ["自由职业探索者", "职业转型中的读者", "正在寻找自我定位的人"];
@@ -228,6 +251,9 @@ function inferReaders(text) {
 
 function inferCoreClaim(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (isGroupProcessDraft(normalized)) {
+    return "团体不是再教一套知识或技术，而是在真实关系互动中，让人看见并松动那些阻碍知识和技能发挥的自我模式。";
+  }
   if (/叙事疗法|外化|解构/.test(normalized)) {
     return "外化和解构的关键，是把人与问题分开，让来访者重新看见立场、价值和选择空间。";
   }
@@ -242,6 +268,13 @@ function inferCoreClaim(text) {
 
 function isSettlingPaceDraft(text) {
   return /安顿|休息|放空|刷剧|高考|采购|辞职|韧性|绩效|卷|停滞/.test(String(text || ""));
+}
+
+function isGroupProcessDraft(text) {
+  const value = String(text || "");
+  return /无结构的?团体/.test(value)
+    && /矫正性情绪体验/.test(value)
+    && /问题.*关系中产生/.test(value);
 }
 
 function normalizeGapItems(value, fallback) {
