@@ -29,6 +29,24 @@ test("buildStyleProfile fallback returns reusable style profile", async () => {
   assert.ok(profile.signaturePhrases.includes("其实"));
 });
 
+test("author revisions receive detailed short-line style analysis", async () => {
+  const profile = await buildStyleProfile([
+    {
+      title: "稳定的工作正在消失，我们开始进入职业流动时代",
+      sampleType: "author_revision",
+      weight: 3,
+      text: "上周六跟老师连麦\n\n聊到了职业困境\n\n真正让人疲惫的\n\n往往不只是事情变多\n\n而是角色和标准不断切换\n\n项目可以结束\n\n能力才是自己的资产"
+    }
+  ], {
+    profileName: "default",
+    aiClient: { json: async (_system, _user, fallback) => fallback() }
+  });
+
+  assert.match(profile.paragraphRhythm, /一行一个意思/);
+  assert.ok(profile.editingPreferences.some((item) => /不要把短句合并/.test(item)));
+  assert.ok(profile.voiceTone.some((item) => /口语/.test(item)));
+});
+
 test("importHistoryTexts appends to saved style library", async () => {
   const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-style-"));
   const aiClient = { json: async (_system, _user, fallback) => fallback() };
@@ -38,5 +56,22 @@ test("importHistoryTexts appends to saved style library", async () => {
   assert.equal(result.articles.length, 2);
   assert.equal(raw.articles.length, 2);
   assert.equal(result.profile.articleCount, 2);
+  await fs.rm(cwd, { recursive: true, force: true });
+});
+
+test("importHistoryTexts preserves author revision metadata", async () => {
+  const cwd = await fs.mkdtemp(path.join(process.cwd(), "tmp-style-revision-"));
+  const aiClient = { json: async (_system, _user, fallback) => fallback() };
+  const result = await importHistoryTexts([{
+    title: "作者校改稿",
+    text: "一行一个意思\n\n能力才是自己的资产",
+    sampleType: "author_revision",
+    revisionOf: "AI 初稿",
+    weight: 3
+  }], { cwd, aiClient });
+
+  assert.equal(result.articles[0].sampleType, "author_revision");
+  assert.equal(result.articles[0].revisionOf, "AI 初稿");
+  assert.equal(result.articles[0].weight, 3);
   await fs.rm(cwd, { recursive: true, force: true });
 });

@@ -69,6 +69,13 @@ export function buildStylePrompt(profile) {
     `- 段落节奏：${profile.paragraphRhythm || "短段落，适合手机阅读"}`,
     `- 高频表达：${list(profile.signaturePhrases)}`,
     `- 论证方式：${list(profile.argumentStyles)}`,
+    `- 叙述语气：${list(profile.voiceTone)}`,
+    `- 句式偏好：${list(profile.sentencePatterns)}`,
+    `- 排版习惯：${list(profile.formattingPatterns)}`,
+    `- 证据偏好：${list(profile.evidencePreferences)}`,
+    `- 幽默方式：${list(profile.humorStyle)}`,
+    `- 编辑偏好：${list(profile.editingPreferences)}`,
+    `- 忠实性规则：${list(profile.fidelityRules)}`,
     `- 结尾习惯：${list(profile.closingPatterns)}`,
     `- 禁用表达：${list(profile.bannedExpressions)}`,
     `- 视觉气质：${profile.visualStyle || "干净、克制、信息密度适中"}`,
@@ -76,8 +83,10 @@ export function buildStylePrompt(profile) {
     "执行要求：",
     "1. 保留用户原始观点和事实，不新增未经支持的案例。",
     "2. 优先让文章读起来像作者本人，而不是通用 AI 总结。",
-    "3. 适配微信公众号手机阅读：短段落、清晰小标题、重点句、引用块、行动清单。",
-    "4. 风格迁移只迁移表达习惯和结构偏好，不照搬历史文章句子。"
+    "3. 适配微信公众号手机阅读：原则上一个意思一行，关键判断和问句单独成段；不要擅自把作者短句合并成长段。",
+    "4. 优先保留具体的人、对话、岗位、项目和行业词汇，再提炼抽象观点；不要用通用解释冲淡现场感。",
+    "5. 允许少量有辨识度的口语、自嘲和锋利判断，但修正明显错字、歧义和无法核实的事实表述。",
+    "6. 风格迁移只迁移表达习惯和结构偏好，不照搬历史文章原句。"
   ].join("\n");
 }
 

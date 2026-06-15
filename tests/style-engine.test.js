@@ -19,6 +19,7 @@ test("buildStylePrompt creates reusable author style instructions", () => {
   assert.match(prompt, /个人公众号写作风格约束提示词/);
   assert.match(prompt, /问题式标题/);
   assert.match(prompt, /不要复制历史文章原句/);
+  assert.match(prompt, /不要擅自把作者短句合并成长段/);
 });
 
 test("refreshStyleArtifacts writes prompt and skill files", async () => {
