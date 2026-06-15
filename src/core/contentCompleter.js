@@ -79,7 +79,20 @@ export function heuristicContentCompletion(input, _styleProfile = null, config =
     needsUserInput.push("如果有具体事件、课程来源或观察对象，可以补充 1-2 个真实细节增强可信度。");
   }
 
-  if (isGroupProcessDraft(text)) {
+  if (isCareerMobilityDraft(text)) {
+    safeSupplements.push(
+      {
+        type: "结构桥梁",
+        content: "用岗位、项目、战略三种流动解释大厂稳定感下降，再把解决方案落到可迁移能力。",
+        usage: "作为全文论证主轴，避免写成泛化的裁员焦虑。"
+      },
+      {
+        type: "边界提醒",
+        content: "大厂仍有训练价值，文章批评的是对平台稳定性的神化，而不是否定大厂经历。",
+        usage: "放在提出解决方案前，保持观点平衡。"
+      }
+    );
+  } else if (isGroupProcessDraft(text)) {
     safeSupplements.push(
       {
         type: "结构桥梁",
@@ -192,6 +205,14 @@ function normalizeContentCompletion(result, fallback) {
 }
 
 function buildSuggestedOutline(text, contentType) {
+  if (isCareerMobilityDraft(text)) {
+    return [
+      { heading: "大厂人的聊天变了", purpose: "用真实问题呈现稳定感变化", keyPoints: ["安全感下降", "职业流动时代"] },
+      { heading: "岗位、项目和战略的三种流动", purpose: "解释不确定性的结构来源", keyPoints: ["任务定义人", "战场消失", "资源重配"] },
+      { heading: "大厂仍值得去，但不能被神化", purpose: "平衡评价大厂价值", keyPoints: ["职业训练", "平台不是保险"] },
+      { heading: "把内部经验翻译成可迁移能力", purpose: "给出个人应对方式", keyPoints: ["市场通用能力", "职业资产"] }
+    ];
+  }
   if (isGroupProcessDraft(text)) {
     return [
       { heading: "为什么学了很多，还是用不出来", purpose: "用读者痛点引出团体与课程的区别", keyPoints: ["知识、技能、才干", "自我层面的卡点"] },
@@ -242,6 +263,7 @@ function inferContentType(text, config) {
 }
 
 function inferReaders(text) {
+  if (isCareerMobilityDraft(text)) return ["大厂从业者", "职业转型者", "关注长期职业发展的读者"];
   if (isGroupProcessDraft(text)) return ["心理咨询师与教练", "助人行业从业者", "有人际困扰或想学习团体带领的人"];
   if (/叙事疗法|心理咨询|来访|咨询/.test(text)) return ["心理咨询学习者", "叙事疗法练习者", "心理咨询技能培训读者"];
   if (isSettlingPaceDraft(text)) return ["职场压力中的读者", "刚经历停顿或调整的人", "想重新安顿自己的普通人"];
@@ -251,6 +273,9 @@ function inferReaders(text) {
 
 function inferCoreClaim(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (isCareerMobilityDraft(normalized)) {
+    return "当岗位、项目和公司战略都在加速流动，职业稳定感需要从依赖平台转向建设可迁移能力。";
+  }
   if (isGroupProcessDraft(normalized)) {
     return "团体不是再教一套知识或技术，而是在真实关系互动中，让人看见并松动那些阻碍知识和技能发挥的自我模式。";
   }
@@ -275,6 +300,14 @@ function isGroupProcessDraft(text) {
   return /无结构的?团体/.test(value)
     && /矫正性情绪体验/.test(value)
     && /问题.*关系中产生/.test(value);
+}
+
+function isCareerMobilityDraft(text) {
+  const value = String(text || "");
+  return /大厂/.test(value)
+    && /岗位|项目/.test(value)
+    && /可迁移能力|职业资产/.test(value)
+    && /战略|组织/.test(value);
 }
 
 function normalizeGapItems(value, fallback) {

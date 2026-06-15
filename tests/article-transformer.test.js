@@ -116,6 +116,21 @@ test("transformArticle builds a dedicated group process article", async () => {
   assert.doesNotMatch(article.markdown, /第五阶|自由职业/);
 });
 
+test("transformArticle builds a career mobility article for big tech drafts", async () => {
+  const article = await transformArticle({
+    rawText: "大厂的岗位边界、项目确定性和公司战略都在加速变化。个人需要把项目经验沉淀成可迁移能力和职业资产。",
+    metadata: {}
+  }, {
+    config: { articleTemplate: { selectedId: "auto" }, image: { inlineImageCount: 2 } },
+    aiClient: { json: async (_system, _user, fallback) => fallback() }
+  });
+
+  assert.equal(article.title, "稳定的工作正在消失，但稳定的能力可以被建立");
+  assert.match(article.markdown, /岗位正在变成临时任务包/);
+  assert.match(article.markdown, /把内部经验，翻译成可迁移能力/);
+  assert.doesNotMatch(article.markdown, /安顿|不被追赶/);
+});
+
 test("createVisualBrief creates cover and inline prompts", async () => {
   const article = {
     title: "文章标题",

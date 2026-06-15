@@ -88,7 +88,7 @@ export function heuristicEditorReview(input, article) {
     });
   }
 
-  if (/外化|叙事|社会建构|建构|关系/.test(source) && /成长|往前|进退|确认方向/.test(title)) {
+  if (isExternalizationDraft(source) && /成长|往前|进退|确认方向/.test(title)) {
     scores.understanding = 25;
     scores.titleFit = 20;
     scores.viewpointFidelity = 28;
@@ -100,7 +100,7 @@ export function heuristicEditorReview(input, article) {
     });
   }
 
-  if (/外化|叙事|社会建构|建构|关系/.test(source) && !/外化|关系|建构/.test(quote)) {
+  if (isExternalizationDraft(source) && !/外化|关系|建构/.test(quote)) {
     scores.quoteFit = 35;
     issues.push({
       severity: "major",
@@ -180,6 +180,16 @@ function normalizeEditorReview(result, fallback) {
 
 function recommendedEditsFor(input, article, issues) {
   const source = String(input?.rawText || "");
+  if (/大厂/.test(source) && /可迁移能力|职业资产/.test(source)) {
+    return {
+      title: article?.title || "稳定的工作正在消失，但稳定的能力可以被建立",
+      quote: article?.expertReviews?.valueMentor?.goldenLines?.[0]
+        || "项目可以结束，但能力不应该随着项目一起消失。",
+      structure: issues.length
+        ? ["大厂人的聊天变了", "岗位、项目和战略的三种流动", "大厂仍值得去", "把内部经验翻译成可迁移能力"]
+        : []
+    };
+  }
   if (/无结构.{0,4}团体|团体带领|矫正性情绪体验|团体.{0,12}(关系|反馈|自我)/.test(source)) {
     return {
       title: article?.title || "为什么学了很多，还是用不出来？团体工作的真正价值",
@@ -190,7 +200,7 @@ function recommendedEditsFor(input, article, issues) {
         : []
     };
   }
-  if (/外化|叙事|社会建构|建构|关系/.test(source)) {
+  if (isExternalizationDraft(source)) {
     return {
       title: "所谓外化：不是逃离自己，而是重新理解关系",
       quote: "外化不是把问题推开，而是把人从问题、标签和社会叙事的黏连中解放出来。",
@@ -202,6 +212,10 @@ function recommendedEditsFor(input, article, issues) {
     quote: article?.expertReviews?.valueMentor?.goldenLines?.[0] || "",
     structure: issues.length ? ["重提原文核心", "补足逻辑递进", "重写标题和引用", "给读者明确收获"] : []
   };
+}
+
+function isExternalizationDraft(text) {
+  return /外化|叙事疗法|社会建构|立场地图|怀特/.test(String(text || ""));
 }
 
 function score(value, fallback) {

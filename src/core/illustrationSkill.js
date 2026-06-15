@@ -69,6 +69,22 @@ export async function applyIllustrationSkill(article, {
 
 export function heuristicIllustrations(article) {
   const text = `${article?.title || ""}\n${article?.digest || ""}\n${article?.markdown || ""}`;
+  if (/大厂|职业流动/.test(text) && /可迁移能力|职业资产/.test(text)) {
+    return {
+      placements: [
+        {
+          afterHeading: "把内部经验，翻译成可迁移能力",
+          afterText: "新的稳定感",
+          sketch: [
+            "Platform -> Project -> Change",
+            "                 |",
+            "Experience -> Method -> Portable ability"
+          ].join("\n"),
+          caption: "外部平台和项目会变化，真正留下的是被提炼成方法的可迁移能力。"
+        }
+      ]
+    };
+  }
   if (/叙事疗法|外化|解构|立场地图|怀特/.test(text)) {
     return {
       placements: [

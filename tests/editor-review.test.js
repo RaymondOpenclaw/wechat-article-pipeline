@@ -52,3 +52,21 @@ test("group process article does not receive narrative externalization edits", a
   assert.equal(review.recommendedEdits.title, "为什么学了很多，还是用不出来？团体工作的真正价值");
   assert.doesNotMatch(review.recommendedEdits.quote, /外化/);
 });
+
+test("career mobility article does not receive narrative externalization edits", async () => {
+  const review = await reviewArticleDraft({
+    rawText: "大厂的岗位、项目和组织战略都在变化，职业关系也在变化。个人需要建立可迁移能力和职业资产。",
+    metadata: {}
+  }, {
+    title: "稳定的工作正在消失，但稳定的能力可以被建立",
+    digest: "稳定感需要从平台转向可迁移能力。",
+    markdown: "> 以前我们被岗位定义，现在我们越来越被任务定义。\n\n## 三种流动\n\n岗位、项目和战略都在流动。",
+    expertReviews: {
+      valueMentor: { goldenLines: ["以前我们被岗位定义，现在我们越来越被任务定义。"] }
+    }
+  }, { aiClient });
+
+  assert.equal(review.approved, true);
+  assert.equal(review.recommendedEdits.title, "稳定的工作正在消失，但稳定的能力可以被建立");
+  assert.doesNotMatch(review.recommendedEdits.quote, /外化/);
+});

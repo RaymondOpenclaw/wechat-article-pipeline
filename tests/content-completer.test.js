@@ -35,3 +35,14 @@ test("content completer recognizes group process drafts", async () => {
   assert.ok(brief.intendedReaders.some((reader) => /助人|咨询/.test(reader)));
   assert.ok(brief.suggestedOutline.some((item) => /无结构团体/.test(item.heading)));
 });
+
+test("content completer recognizes career mobility drafts", async () => {
+  const brief = await completeArticleInformation({
+    rawText: "大厂的岗位、项目和组织战略都在流动。个人需要把内部经验转成可迁移能力和职业资产。",
+    metadata: {}
+  }, { aiClient });
+
+  assert.match(brief.coreClaim, /可迁移能力/);
+  assert.ok(brief.intendedReaders.some((reader) => /大厂/.test(reader)));
+  assert.ok(brief.suggestedOutline.some((item) => /岗位、项目和战略/.test(item.heading)));
+});

@@ -111,6 +111,9 @@ function normalizeBlueprint(blueprint, input, digest = "") {
 }
 
 function heuristicTransform(input, styleProfile, config, contentBrief = null) {
+  const careerMobility = buildCareerMobilityArticle(input, config);
+  if (careerMobility) return attachContentBrief(careerMobility, contentBrief);
+
   const groupProcess = buildGroupProcessArticle(input, config);
   if (groupProcess) return attachContentBrief(groupProcess, contentBrief);
 
@@ -174,6 +177,81 @@ function heuristicTransform(input, styleProfile, config, contentBrief = null) {
       "根据个人风格库约束表达习惯，并完成微信移动端排版"
     ],
     riskNotes: []
+  };
+}
+
+function buildCareerMobilityArticle(input, config) {
+  const text = String(input.rawText || "");
+  if (!isCareerMobilityDraft(text)) return null;
+
+  const title = "稳定的工作正在消失，但稳定的能力可以被建立";
+  const digest = "大厂仍然值得去，但它越来越不像稳定的避风港。当岗位、项目和战略都在加速流动，真正能陪一个人穿越变化的，不再是平台和 title，而是离开当前组织后依然能够复用的能力。";
+  const quote = "以前我们被岗位定义，现在我们越来越被任务定义。";
+  const sections = [
+    {
+      heading: "大厂人的聊天，已经悄悄变了",
+      role: "引出职业流动时代",
+      body: "以前在大厂，大家最常聊晋升、绩效、转岗和跳槽。现在更多人问的是：项目还在吗？团队会不会合并？老板是不是又换方向了？今年还安全吗？\n\n过去，大厂通常意味着高薪、资源、成长路径和相对确定性；如今它仍然有价值，却越来越不像一个稳定的避风港。稳定感正被三种变化一点点拿走：工作内容在流动，项目确定性在流动，公司战略也在流动。"
+    },
+    {
+      heading: "第一种流动：岗位正在变成临时任务包",
+      role: "解释岗位边界变化",
+      body: "产品经理可能今天做增长，明天做 AI 工具，后天参与商业化；运营要同时理解投放、数据、转化和自动化；研发也需要理解业务目标、成本收益，并快速搭建原型。\n\n公司不再只按照岗位分配工作，而是围绕眼前的问题和目标快速组织人。真正让人疲惫的往往不只是事情变多，而是角色、语境、协作对象和评价标准都在不断切换。只会守住固定边界的人，也会在这种环境里越来越被动。"
+    },
+    {
+      heading: "第二种流动：你很努力，但战场突然没了",
+      role: "解释项目确定性下降",
+      body: "尤其在 AI、新业务、创新业务和出海方向，项目从立项到调整可能只有几个月。快速组队、收缩、合并和换方向，正在成为常态。\n\n项目消失并不必然意味着某个人做得不好。战略优先级、资源配置、业务预期和外部环境的变化，都可能让原来的战场突然不存在。过去个人成长与项目成功绑定，如今必须多问一层：如果项目三个月后调整，我能带走什么？如果最终没有跑出来，我能否讲清自己的判断、方法和可迁移能力？"
+    },
+    {
+      heading: "第三种流动：大厂自己也在重新找方向",
+      role: "解释战略与资源变化",
+      body: "增长放缓、竞争加剧、资本更理性、AI 冲击、全球化变化和组织效率压力，让大厂也必须不断重新计算投入产出比。\n\n裁员、重组、团队合并、非核心业务收缩，以及对人效和 ROI 的强调，都说明大厂正在变成一个更快速调整资源的系统。它并不是不会变化，只是过去变化得足够慢，个人还有时间适应。现在，组织变化的速度正在逼近甚至超过个体的适应速度。"
+    },
+    {
+      heading: "大厂仍然值得去，但不能再被神化",
+      role: "平衡大厂的训练价值",
+      body: "大厂仍然能提供复杂业务场景、成熟组织体系、优秀人才密度和高标准协作经验。对很多人而言，它依然是一段重要的职业训练。\n\n需要调整的是那套旧想象：进入大厂并不等于从此安全。大厂经历是背书，但不是护城河；平台能提供机会，却不能替代个人能力。真正值得追问的是：离开这个平台以后，你还能不能独立创造价值？"
+    },
+    {
+      heading: "把内部经验，翻译成可迁移能力",
+      role: "提供具体应对方法",
+      body: "新的稳定感要从可迁移能力里来。结构化思考、复杂问题拆解、业务判断、项目推进、跨部门沟通、用户洞察、商业化意识、内容表达、AI 工具使用和复盘沉淀，都是更耐久的职业资产。\n\n做增长项目，要带走增长模型；参与 AI 项目，要沉淀落地方法；推动跨部门协作，要提炼复杂协同经验；做降本增效，要形成判断成本结构的方法。项目可以结束，但能力不应该随着项目一起消失。"
+    }
+  ];
+  const closing = "职业流动时代需要一次认知升级：从追求稳定岗位，转向打造稳定能力；从依赖公司平台，转向建设个人职业资产；从等待组织安排，转向主动理解自己能解决什么问题。稳定的工作可能正在消失，但稳定的能力依然可以被建立。";
+  const expertReviews = {
+    chiefEditor: { summary: "从三种流动解释大厂稳定感下降，最后落到可迁移能力，论证完整。", suggestions: ["保留大厂仍值得去的平衡判断", "避免渲染裁员焦虑", "把建议落到经验翻译动作"] },
+    valueMentor: { highlights: ["稳定感从岗位转向能力", "项目变化不等于个人努力无效"], goldenLines: [quote, "项目可以结束，但能力不应该随着项目一起消失。"] },
+    structureMaster: { background: "岗位、项目和战略都在加速流动。", tensionOrConclusion: "个人需要把组织经验转化为可迁移的职业资产。", actionItems: ["盘点项目中真正带走的能力", "把内部经验改写成市场通用语言", "明确自己能够跨平台解决的问题"] }
+  };
+  const markdown = [`# ${title}`, "", "以前在大厂，大家聊晋升、绩效、转岗和跳槽。现在，越来越多人先问：项目还在吗？团队安全吗？老板是不是又换方向了？", "", digest, "", `> ${quote}`, "", ...sections.flatMap((section) => [`## ${section.heading}`, "", section.body]), "", closing].join("\n\n");
+  const html = renderProfessionalWechatHtml({
+    title, digest, sections, expertReviews,
+    openingParagraphs: ["以前在大厂，大家聊晋升、绩效、转岗和跳槽。", "现在，越来越多人先问：项目还在吗？团队安全吗？老板是不是又换方向了？"],
+    closingLead: "真正的职业安全感，需要从外部平台重新收回到自己手里。",
+    closingClaim: "项目可以结束，但能力不应该随着项目一起消失。",
+    closingPrompt: closing,
+    inlineCount: config.image?.inlineImageCount ?? 2
+  });
+  return {
+    input,
+    blueprint: {
+      coreClaim: "当岗位、项目和战略都在加速流动，职业稳定感需要从平台转向可迁移能力。",
+      audience: "大厂从业者、职业转型者和关注长期职业发展的读者",
+      articleType: "职场趋势洞察",
+      titleCandidates: [title, "从大厂出来后，我重新理解了什么叫稳定", "大厂不再是避风港，你真正能带走什么", "项目会消失，但这几种能力不会", "职业流动时代，大厂人如何重建安全感"],
+      digest,
+      sections: sections.map((section) => ({ heading: section.heading, role: section.role, summary: firstSentence(section.body).slice(0, 80) })),
+      closingPrompt: closing,
+      shareReason: "解释大厂职业不确定性的结构性来源，并提供可执行的能力沉淀框架。"
+    },
+    styleProfile: null,
+    expertReviews,
+    title, digest, markdown, html,
+    changeLog: ["保留岗位、项目、战略三种流动的分析框架", "压缩重复论述并加强递进", "补强对大厂价值的平衡判断", "把可迁移能力落到具体翻译动作"],
+    riskNotes: ["文章讨论的是职业环境趋势，不代表所有公司、团队和岗位都以相同速度变化。"],
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -1235,6 +1313,14 @@ function isGroupProcessDraft(text) {
   return /无结构的?团体/.test(value)
     && /矫正性情绪体验/.test(value)
     && /问题.*关系中产生/.test(value);
+}
+
+function isCareerMobilityDraft(text) {
+  const value = String(text || "");
+  return /大厂/.test(value)
+    && /岗位|项目/.test(value)
+    && /可迁移能力|职业资产/.test(value)
+    && /战略|组织/.test(value);
 }
 
 function trimSentence(value) {
